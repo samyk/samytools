@@ -1,0 +1,51 @@
+#!/usr/bin/perl
+#
+# make listening/saving data from rtl-sdr or hackrf faster
+# example: rtl 315M
+# example: rtl 315M test.wav
+#
+# by samy kamkar
+
+use strict;
+use Getopt::Std;
+
+# hackrf or rtl?
+my $fmcmd = system("rtl_test >>/dev/null 2>>/dev/null") ? "hackrf_fm" : "rtl_fm";
+
+my %o;
+getopts('bls:m:', \%o);
+
+die "usage: [-s squelch] [-m modulation] [-b (baudline)] [-l (lowpass)] <frequency (hz/mhz)> [file.wav]\n" unless @ARGV == 1 || @ARGV == 2;
+
+$o{m} ||= 'am';
+$o{s} &&= "-l $o{s}";
+$o{l} &&= "lowpass -2 5000";
+
+my ($freq, $file) = @ARGV;
+$freq *= 1_000_000 if $freq < 1000;
+
+my $sample = 2_000_000;
+my $sox_opts = "-t raw -r $sample -e signed-integer -b 16 -c 1 -V1 - $file $o{l}";
+my $rtl_sdr_opts = "-f $freq -s $sample -";
+my $rtl_fm = "$fmcmd -M $o{m} $o{s} $rtl_sdr_opts";
+if ($fmcmd =~ /^hackrf_fm/i)
+{
+	$rtl_fm =~ s/-M\s+am/-M/;
+	$rtl_fm =~ s/-M\s+fm//;
+}
+
+my $sys;
+if ($o{b})
+{
+	$sys = "rtl_sdr $rtl_sdr_opts | /Applications/Audio/baudline.app/Contents/MacOS/baudline -reset -samplerate $sample -channels 2 -format u8 -quadrature -stdin";
+}
+else
+{
+	$sys = $file ?
+		"$rtl_fm | sox  $sox_opts" :
+		"$rtl_fm | play $sox_opts";
+}
+
+print "$sys\n";
+system($sys);
+
