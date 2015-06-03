@@ -1,0 +1,113 @@
+#!/usr/bin/perl
+
+my $BASE = "http://search.cpan.org";
+use strict;
+use LWP::Simple;
+
+die "usage: $0 [-f (force)] [-n (no install)] <module to install> [module ...]\n" unless @ARGV;
+chdir("/tmp");
+
+my $noinstall = 0;
+my $force = 0;
+if ($ARGV[0] eq "-f")
+{
+	$force = 1;
+	shift(@ARGV);
+}
+
+if ($ARGV[0] eq "-n")
+{
+	$noinstall = 1;
+	shift(@ARGV);
+}
+
+foreach my $module (@ARGV)
+{
+	dl($module);
+}
+
+sub dl
+{
+	my $module = shift;
+
+	return if installed($module);
+
+	$module =~ s/(\W)/"%" . unpack("H2", $1)/eg;
+	my $html = get("$BASE/search?query=$module&mode=all");
+	if ($html =~ m|<small>   <a href="([^"]+)">([^<]+)|)
+	{
+		my ($url, $name) = ($1, $2);
+
+		print "Grabbing $name\n";
+		return if installed($name);
+
+		if (-e "$name.tar.gz")
+		{
+			print "File `$name.tar.gz` exists, no need to download\n";
+			install("$name.tar.gz");
+		}
+		else
+		{
+			my $html2 = get($BASE . $1);
+			if ($html2 =~ /href="([^"]+)">Download/)
+			{
+				my $url = $BASE . $1;
+				print "Downloading $url\n";
+				$url =~ m|/([^/]+)$|;
+				my $file = $1;
+				if (-e $file)
+				{
+					print "File `$file` exists, no need to download\n";
+					install($file);
+				}
+				else
+				{
+					getstore($url, $file);
+					install($file);
+				}
+			}
+		}
+	}
+}
+
+sub install
+{
+	my $file = shift;
+
+	print "Unpacking $file\n";
+	system("tar", "-zxf", $file);
+	my $cd = $file;
+	$cd =~ s/\.tar\.gz|\.tgz//;
+
+	my $out = `cd $cd && $^X Makefile.PL 2>&1`;
+	print $out;
+	while ($out =~ s/prerequisite (\S+) \S+ not found//)
+	{
+		print "INSTALLING PREREQUISITE: $1\n";
+		dl($1);
+	}
+
+	if ($noinstall)
+	{
+		system("cd $cd && $^X Makefile.PL && make");
+	}
+	else
+	{
+		system("cd $cd && $^X Makefile.PL && make && sudo make install");
+	}
+}
+
+sub installed
+{
+	my $module = shift;
+	$module =~ s/-\d+(\.\d+)?$//;
+
+	if (!system("$^X -M$module -e1 2>>/dev/null"))
+	{
+		print "$module already installed\n";
+		print "..but forced!\n" if $force;
+		return $force ? 0 : 1;
+	}
+
+	return 0;
+}
