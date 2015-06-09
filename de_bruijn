@@ -1,0 +1,56 @@
+#!/usr/bin/perl
+
+# de bruijn sequence generator
+# by samy kamkar
+
+use strict;
+my $nums = shift || 3;
+my $alpha = shift || 2;
+print(de_bruijn($alpha, $nums));
+print "\n";
+
+sub de_bruijn
+{
+		my ($k, $n) = @_;
+		my @sequence;
+		my @alphabet;
+		if ($k =~ /^\d+$/)
+		{
+			@alphabet = 0 .. $k;
+		}
+		else
+		{
+			@alphabet = split //, $k;
+			$k = @alphabet;
+		}
+#		my @alphabet = ($k =~ /^\d+$/ ? 0 .. $k : split //, $k);
+		my @a = (0) x ($k * $n);
+
+		sub db
+		{
+			my ($t, $p) = @_;
+			if ($t > $n)
+			{
+				if ($n % $p == 0)
+				{
+					foreach my $j (1 .. $p)
+					{
+						push @sequence, $alphabet[$a[$j]];
+					}
+				}
+			}
+			else
+			{
+				$a[$t] = $a[$t-$p];
+				db($t+1, $p);
+				foreach my $j ($a[$t-$p]+1 .. $k-1)
+				{
+					$a[$t] = $j;
+					db($t+1, $t);
+				}
+			}
+		}
+		db(1, 1);
+		return join("", @sequence) . ($alphabet[0] x ($n-1)); 
+}
+
