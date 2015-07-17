@@ -1,0 +1,16 @@
+#!/usr/bin/perl
+#
+# compare two directories very quickly by comparing
+# filenames rather than comparing contents of file
+
+use strict;
+
+die "usage: $0 <dir1> <dir2>\n" unless @ARGV == 2;
+
+my $rand = rand();
+my $file = "/tmp/.df.$rand";
+my $d1 = `cd '$ARGV[0]' && (find . | sort) > ${file}1`;
+my $d2 = `cd '$ARGV[1]' && (find . | sort) > ${file}2`;
+
+system("diff ${file}1 ${file}2");
+unlink("${file}1", "${file}2");
