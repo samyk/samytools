@@ -1,0 +1,79 @@
+#!/usr/bin/perl
+#
+# convert a frequency for the CC111x TI chip to the FREQ2/1/0 registers (and back again so you have the actual frequency)
+#
+# -samy kamkar, http://samy.pl, code@samy.pl
+# sep 1, 2014
+
+# def setFeq(self, freq=902000000, mhz=24, radiocfg=None, applyConfig=True):
+use strict;
+
+die "usage: $0 <freq | hex>\n" unless @ARGV == 1;
+
+my $freq = shift;
+my $afreq;
+
+if ($freq =~ /^\d{9}$/)
+{
+	my @cc1111hex = get_reg($freq, 24);
+	$afreq = get_freq(24, @cc1111hex);
+	print "CC1111   : FREQ[2,1,0]: @cc1111hex ($afreq)\n";
+
+	my @cc1110hex = get_reg($freq, 26);
+	$afreq = get_freq(26, @cc1110hex);
+	print "CC1110/01: FREQ[2,1,0]: @cc1110hex ($afreq)\n";
+}
+elsif ($freq =~ /^(\w\w)(\w\w)(\w\w)$/)
+{
+	my ($a, $b, $c) = ($1, $2, $3);
+
+	$afreq = get_freq(24, $a, $b, $c);
+	my @cc1111hex = get_reg($afreq, 24);
+	print "CC1111   : FREQ[2,1,0]: @cc1111hex ($afreq)\n";
+
+	$afreq = get_freq(26, $a, $b, $c);
+	my @cc1110hex = get_reg($afreq, 26);
+	print "CC1110/01: FREQ[2,1,0]: @cc1110hex ($afreq)\n";
+}
+
+
+# get registers based off freq and mhz
+sub get_reg
+{
+	my ($freq, $mhz) = @_;
+	my $freqmult = (0x10000 / 1000000.0) / $mhz;
+	my $num = int($freq * $freqmult);
+
+	my $freq2 = $num >> 16;
+	my $freq1 = ($num>>8) & 0xff;
+	my $freq0 = $num & 0xff;
+
+	return map { unpack("H2", chr($_)) } $freq2, $freq1, $freq0;
+	#CC1111: FREQ[2,1,0]: 0c 00 7f
+	#CC1110: FREQ[2,1,0]: 0b 00 89
+	#return ($freq2, $freq1, $freq0);
+}
+
+sub get_freq
+{
+	my ($mhz, @hex) = @_;
+
+	my $freqmult = (0x10000 / 1000000.0) / $mhz;
+	my ($freq2, $freq1, $freq0) = map { ord($_) } split(//, pack("H2 H2 H2", @hex));
+	
+	my $num = $freq2 << 16;
+	$num += ($freq1 << 8);
+	$num += $freq0;
+
+	$num /= $freqmult;
+
+	return $num;
+}
+
+
+
+__DATA__
+
+0x0c
+0x80
+0x88
