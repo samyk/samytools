@@ -1,0 +1,27 @@
+#!/usr/bin/perl
+
+use strict;
+
+my $deviatn = shift || die "usage: $0 <deviation (eg 25000)>\n";
+foreach my $mhz (24, 26)
+{
+	my ($m, $dev_e, $dev_m);
+	for my $e (0..8)
+	{
+		$m = int(($deviatn * (2**17) / ((2**$e)* ($mhz*1000000.0))-8) + .5);
+		if ($m < 8)
+		{
+			$dev_e = $e;
+			$dev_m = $m;
+			last;
+		}
+	}
+	if (!length $dev_e)
+	{
+		print "Wtf\n";
+	}
+
+	my $dev = 1000000.0 * $mhz * (8+$dev_m) * (2**$dev_e) / (2**17);
+	print $mhz == 24 ? "CC1111   : " : "CC1110/01: ";
+	print "0x$dev_e$dev_m mhz $mhz dev $dev _e=$dev_e _m=$dev_m\n";
+}

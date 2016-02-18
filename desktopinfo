@@ -1,0 +1,121 @@
+#!/usr/bin/perl
+
+use strict;
+
+# sniff
+if ($ARGV[0] eq "-s")
+{
+	exit;
+	my $ip = `/sbin/ifconfig en1`;
+	$ip = $1 if $ip =~ /inet (\S+)/;
+	system("tcpdump -i en1 'not host $ip and not port 139 and not port 137 and not port 138 and not port snmp and not arp and not icmp and not igmp and not port microsoft-ds and not ssdp and not port mdns and (tcp or port 53)'");
+}
+
+# sniff eth
+elsif ($ARGV[0] eq "-e")
+{
+	open F, "</tmp/.dt.macs";
+	print while <F>;
+	close F;
+	close STDOUT;
+	close STDERR;
+	fork && exit;
+
+
+	my %macs;
+	open O, "</Users/samy/Documents/.oui.txt";
+	while (<O>)
+	{
+		if (/^(\w{6})\s+\(.*?\)\s+(\S.*)$/)
+		{
+			s/\r//g;
+			$macs{$1} = $2;
+		}
+	}
+	close(O);
+
+	my $ip = `/sbin/ifconfig en1`;
+	$ip = $1 if $ip =~ /inet (\S+)/;
+	open G, "</tmp/.dt.ip";
+	chomp(my $oldip = <G>);
+	close(G);
+
+	my %found;
+	if ($oldip ne $ip)
+	{
+		open G, ">/tmp/.dt.ip";
+		print G "$ip\n";
+		close G;
+		open F, ">/tmp/.dt.macs";
+	}
+	else
+	{
+		open F, "</tmp/.dt.macs";
+		while (<F>)
+		{
+			/^(\S+)/ && $found{$1}++;
+		}
+		close F;
+
+		open F, ">>/tmp/.dt.macs";
+	}
+
+	eval
+	{
+		my $pid = open TCP, "tcpdump -levvvi en1 'not host $ip' 2>>/dev/null|";
+		alarm(60);
+		$SIG{ALRM} = sub { kill 2, $pid; close(F); die; };
+
+		while (<TCP>)
+		{
+			if (/^\s*\S+\s+((\w+:\w+:\w+)\S+).*?((\w+:\w+:\w+)\S+).*?\s(\d+.\d+\.\d+\.\d+)\.(\S+) > (\d+.\d+\.\d+\.\d+)\.(\S+)/)
+			{
+				my ($eth1, $oui1, $eth2, $oui2, $ip1, $port1, $ip2, $port2) = ($1, $2, $3, $4, $5, $6, $7, $8);
+				$oui1 =~ s/://g;
+				$oui1 = uc($oui1);
+				$oui2 =~ s/://g;
+				$oui2 = uc($oui2);
+
+				if (!$found{$ip1}++)
+				{
+					print F "$ip1\t$eth1\t$macs{$oui1}\n";
+				}
+				if (!$found{$ip2}++)
+				{
+					print F "$ip2\t$eth2\t$macs{$oui2}\n";
+				}
+			}
+		}
+	};
+
+	system("clear");
+	open F, "</tmp/.dt.macs";
+	print while <F>;
+	close F;
+}
+
+# normal info
+else
+{
+	system("uptime");
+	print "\n";
+
+	my $air = `airport -s`;
+	$air =~ s| \(auth/unicast/group\)||;
+	my @air = split /\n/, $air;
+	my $chars = 100;
+	foreach (@air)
+	{
+		if (/^(\s+)\S/)
+		{
+			$chars = length($1) if length($1) < $chars;
+		}
+	}
+	$air =~ s/^ {$chars}//mg;
+	$air =~ s/\n.*?IBSS network.*?found.*?\n/\n/m;
+	print $air;
+	print "\n";
+
+	system("airport -I");
+	print "\n";
+}

@@ -1,0 +1,29 @@
+#!/usr/bin/perl
+
+use strict;
+
+my $bw = shift || die "usage: $0 <chan bw (eg 125000)>\n";
+
+foreach my $mhz (24, 26)
+{
+	my ($chanbw_e, $chanbw_m, $m, $e);
+	for my $e (0 .. 4)
+	{
+		$m = int((($mhz*1000000.0 / ($bw * (2**$e) * 8.0 )) - 4) + .5);
+		if ($m < 4)
+		{
+			$chanbw_e = $e;
+			$chanbw_m = $m;
+			last;
+		}
+	}
+	if (!length $chanbw_e)
+	{
+		die "invalid chanbw?";
+	}
+
+	my $bw = int(1000.0*$mhz / (8.0*(4+$chanbw_m) * (2**$chanbw_e)));
+  print $mhz == 24 ? "CC1111   : " : "CC1110/01: ";
+	my $h = uc unpack("h", chr(($chanbw_e << 2) + $chanbw_m));
+	print "MDMCFG4 0x$h? mhz $mhz bw $bw _e=$chanbw_e _m=$chanbw_m\n";
+}

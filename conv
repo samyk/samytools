@@ -1,0 +1,46 @@
+#!/usr/bin/perl
+
+die "usage: $0 <from> <to>\nconverts any file format to another\n" unless @ARGV;
+my ($a, $b) = @ARGV;
+
+my ($type1, $type2);
+$type1 = lc($1) if $a =~ /(\w+)$/;
+$type2 = lc($1) if $b =~ /(\w+)$/;
+
+if (@ARGV == 1)
+{
+	$b = $a;
+	$b =~ s/\w+$/mp3/;
+	$type2 = "mp3";
+}
+
+my %types = (
+	"mp4-mp3"		=> ["ffmpeg", "-i", $a, "-f", "mp3", "-ab", "320000", "-vn", $b],
+	"mov-mp3"		=> ["ffmpeg", "-i", $a, "-f", "mp3", "-ab", "320000", "-vn", $b],
+	"flv-mp3"		=> ["ffmpeg", "-i", $a, "-f", "mp3", "-ab", "320000", "-vn", $b],
+	"aif-mp3"		=> ["sox", "-V3", $a, "-C", "320", $b],
+	"flac-mp3"	=> ["sox", "-V3", $a, "-C", "320", $b],
+	#"m4a"				=> ["faad -o - 04\ Kiss\ Kiss\ Bang\ Bang.m4a | lame - "
+	#"mp4-mov"		=> ["ffmpeg", "-i", $a, $b],
+	"mov"				=> ["ffmpeg", "-i", $a, $b],
+  "mp3"				=> ["sox", "-V3", $a, "-C", "320", $b],
+  "wav"				=> ["sox", "-V3", $a, "-C", "320", $b],
+	"jpg"				=> ["convert", "-verbose", $a, $b],
+	"png"				=> ["convert", "-verbose", $a, $b],
+	"gif"				=> ["convert", "-verbose", $a, $b],
+	"bmp"				=> ["convert", "-verbose", $a, $b],
+);
+
+my $out = $types{"$type1-$type2"} || $types{$type2};
+if ($type1 eq $type2)
+{
+	die "Can't convert to the same type ($type1)\n";
+}
+
+if (!$out)
+{
+	die "Don't understand type $type1 or $type2\n";
+}
+
+print "> " . join(" ", @{$out}) . "\n";
+system(@{$out});

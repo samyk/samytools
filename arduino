@@ -1,0 +1,81 @@
+#!/usr/bin/perl
+
+use strict;
+use Data::Dumper;
+use Getopt::Std;
+
+my $RUN = "avr-g++";
+my $COPY = "avr-objcopy";
+my $UPLOAD = "avrdude";
+my @includes = (
+	"/Applications/Code/Arduino.app/Contents/Resources/Java/hardware/arduino/variants/standard/",
+	"/Applications/Code/Arduino.app/Contents/Resources/Java/hardware/arduino/variants/standard/",
+	"/Applications/Code/Arduino.app/Contents/Resources/Java/hardware/arduino/cores/arduino",
+);
+my $include = join " ", map { "-I$_" } @includes;
+
+
+my %cores = (
+	'attiny44' => 't44',
+	'attiny45' => 't45',
+	'attiny84' => 't84',
+	'attiny85' => 't85',
+);
+
+my %o;
+if (!getopts('m:t:u:', \%o) || !@ARGV || grep { !-e $_ } @ARGV)
+{
+	die "usage: $0 [-u USB] [-m 8/MHz] [-t attiny45/core] <file.c/cpp>\n";
+}
+
+my $usb = $o{u};;
+my $mhz = $o{m} || 8;
+$mhz *= 1_000_000;
+my $core = $o{t} || "attiny45";
+
+my @ofiles;
+foreach my $file (@ARGV)
+{
+	my $ofile = $file;
+	$ofile =~ s/\.[^.]+$/.o/ || die;
+	push @ofiles, $ofile;
+
+	my $opts = "-c -g -Os -Wall -fno-exceptions -ffunction-sections -fdata-sections -mmcu=$core -DF_CPU=${mhz}L $include -MMD -DUSB_VID=null -DUSB_PID=null -DARDUINO=105 $file -o $ofile";
+
+	system("$RUN $opts") && die "$RUN $opts";
+}
+
+my $hfile = $ARGV[0];
+$hfile =~ s/\.[^.]+$/.hex/ || die;
+
+system("$COPY -O ihex -R .eeprom @ofiles $hfile") && die;
+
+if (!-e $usb)
+{
+	my @f = </dev/tty.usb*>;
+	for (my $i = 1; $i <= @f; $i++)
+	{
+		print "\t$i: " . $f[$i-1] . "\n";
+	}
+
+	while ($usb !~ /^\s*\d+\s*$/)
+	{
+		print "Choose USB device: ";
+		chomp($usb = <STDIN>);	
+	}
+	$usb =~ s/\s//g;
+	$usb = $f[$usb-1];
+}
+
+system("$UPLOAD -V -c arduino -p $cores{$core} -b 19200 -P $usb -U flash:w:$hfile");
+
+
+__DATA__
+avr-g++ -c -g -Os -Wall -fno-exceptions -ffunction-sections -fdata-sections -mmcu=attiny45 -DF_CPU=8000000L -MMD -DUSB_VID=null -DUSB_PID=null -DARDUINO=105 chasers.hpp -o x.o
+
+
+   99  avr-objcopy -O ihex -R ..eeprom ws2811_controller_low_ram.o out.hex
+  100  avrdude -V -c arduinoisp -p m168 -b 19200 -P usb -U flash:w:out.hex 
+  101  avrdude -V -c arduino -p m168 -b 19200 -P usb -U flash:w:out.hex 
+  102  avrdude -V -c arduino -p m168 -b 19200 -P /dev/tty.usbserial-A9ETPRVF -U flash:w:out.hex 
+

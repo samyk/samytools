@@ -1,0 +1,42 @@
+#!/usr/bin/perl
+
+my $out = -t STDOUT ? "\n" : "";
+use MIME::Base64;
+use strict;
+
+my $type = shift;
+if ($type eq "-d")
+{
+	if (@ARGV)
+	{
+		foreach (@ARGV)
+		{
+			print MIME::Base64::decode_base64($_) . $out;
+		}
+	}
+	else
+	{
+		while (<>)
+		{
+			print MIME::Base64::decode_base64(join("", $_)) . $out;
+		}
+	}
+}
+elsif ($type eq "-e")
+{
+	if (@ARGV)
+	{
+		foreach (@ARGV)
+		{
+			print MIME::Base64::encode_base64($_);
+		}
+	}
+	else
+	{
+		print MIME::Base64::encode_base64(join("", <>));
+	}
+}
+else
+{
+	die "usage: $0 <-d | -e> [data | STDIN]\n";
+}

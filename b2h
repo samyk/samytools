@@ -1,0 +1,7 @@
+#!/usr/bin/perl -l
+
+foreach (@ARGV)
+{
+	s/(.{8})/"\\x".unpack("H2", pack("B8", $1))/eg;
+	print;
+}

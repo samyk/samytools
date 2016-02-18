@@ -1,0 +1,41 @@
+#!/usr/bin/perl
+
+use Term::ANSIColor;
+my $test = 0;
+if ($ARGV[0] eq '-t')
+{
+	shift(@ARGV);
+	$test = 1;
+}
+
+usage() unless @ARGV >= 2;
+
+my $cmd = shift;
+if ($cmd !~ /F|NOEXT/)
+{
+	usage();
+}
+
+if ($cmd !~ /FILE/)
+{
+	$cmd =~ s/F/FILE/g;
+}
+
+foreach my $file (@ARGV)
+{
+	$file =~ s/'/'\\''/g;
+	my $ne = $file;
+	$ne =~ s/\.[^.]+$//;
+	my $tmp = $cmd;
+	$tmp =~ s/FILE/'$file'/g;
+	$tmp =~ s/NOEXT/'$ne'/g;
+	print color 'bold';
+	print "$tmp\n";
+	print color 'reset';
+	system($tmp) unless $test;
+}
+
+sub usage
+{
+	die "usage: $0 [-t(est)] <'command -f FILE'> <file1 file2 ...>\n";
+}

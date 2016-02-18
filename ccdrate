@@ -1,0 +1,30 @@
+#!/usr/bin/perl
+
+use strict;
+
+my $drate = shift || die "usage: $0 <datarate (eg 2000)>\n";
+
+foreach my $mhz (24, 26)
+{
+	my ($drate_e, $drate_m, $m, $e);
+	for my $e (0 .. 16)
+	{
+	  $m = int(($drate * (2**28) / ((2**$e) * ($mhz*1000000.0))-256) + .5);
+		if ($m < 256)
+		{
+			$drate_e = $e;
+			$drate_m = $m;
+			last;
+		}
+	}
+	if (!length $drate_e)
+	{
+		die "invalid drate?";
+	}
+
+	$drate = 1000000.0 * $mhz * (256+$drate_m) * (2**$drate_e) / (2**28);
+  print $mhz == 24 ? "CC1111   : " : "CC1110/01: ";
+	my $h1 = uc unpack("H2", chr($drate_m));
+	my $h2 = uc unpack("h", chr($drate_e));
+	print "MDMCFG3=0x$h1 MDMCFG4=0x?$h2 mhz $mhz drate $drate _e=$drate_e _m=$drate_m\n";
+}

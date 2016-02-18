@@ -1,0 +1,28 @@
+#!/usr/bin/perl
+
+my $TIMES = 3;
+my $SLEEP = 1;
+
+my $SUCCESS = "/System/Library/Sounds/Glass.aiff";
+my $ERROR = "/System/Library/Sounds/Basso.aiff";
+my $PLAY = "/opt/local/bin/play";
+
+die "usage: $0 <command>\n" unless @ARGV;
+
+# alerts (via noise) when done (with either error or success)
+play(system(@ARGV) ? $ERROR : $SUCCESS);
+
+sub play
+{
+	my $file = shift;
+
+	close(STDERR);
+	close(STDIN);
+	foreach (1 .. $TIMES - 1)
+	{
+		system($PLAY, $file);
+		sleep($SLEEP);
+	}
+	system($PLAY, $file);
+	# don't sleep last time
+}

@@ -1,0 +1,29 @@
+#!/usr/bin/perl
+
+use strict;
+use Term::ANSIColor;
+
+my $B = 'bold blue';
+my $B2 = 'bold white';
+die colored("usage:", $B) . " $0 <code> <0 binary> <1 binary> [...]\n" .
+	colored("example:", $B) . " 101 1000 1110 (out: " . colored("1110", $B) . "1000" . colored("1110", $B) . ")\n" unless @ARGV >= 3;
+
+my ($code, @elems) = @ARGV;
+
+
+print "Length: " . length($code) . "\n";
+my $i = 1;
+my $ccode = $code;
+$ccode =~ s/(.)/$elems[$1]/eg;
+$code =~ s/(.)/colored($elems[$1], $i++ % 2 ? $B : $B2)/eg;
+print "New length: " . length($ccode) . "\n";
+print "New code:\n\n";
+
+print $code . "\n";
+
+$ccode = (("0" x (8 - (length($ccode) % 8))) . $ccode);
+$ccode =~ s/^0{8}//;
+$ccode = unpack("H*", pack("B*", $ccode));
+my $i = 1;
+$ccode =~ s/(..)/colored($1, $i++ % 2 ? $B : $B2)/eg;
+print "0x$ccode\n\n";

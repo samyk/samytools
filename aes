@@ -1,0 +1,31 @@
+#!/usr/bin/perl
+
+#"F8 94 EB F5 45 66 1F DF DE FF E1 12 FC CF 44 91";
+
+use strict;
+use Crypt::OpenSSL::AES;
+
+die "usage: $0 <key> <message>\n" unless @ARGV == 2;
+
+my ($key, $msg) = @ARGV;
+
+$key =~ s/(..)/pack("H2", $1)/eg;
+$msg =~ s/(..)/pack("H2", $1)/eg;
+
+if (length($msg) % 16 != 0)
+{
+	print STDERR "padding with " . (16 - (length($msg) % 16)) . " zeros\n\n";
+	$msg .= "\x00" x (16 - (length($msg) % 16));
+}
+
+my $cipher = new Crypt::OpenSSL::AES($key);
+
+my $encrypted = $cipher->encrypt($msg);
+print "Encrypted: $encrypted\n";
+print "Encrypted: " . unpack("H*", $encrypted) . "\n";
+
+my $decrypted = unpack("H*", $cipher->decrypt($msg));
+print "Decrypted: " . pack("H*", $decrypted) . "\n";
+print "Decrypted: $decrypted\n";
+#print "Decrypted: " . unpack("H*", $decrypted) . "\n";
+#print "Decrypted: " 

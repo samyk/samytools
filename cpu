@@ -1,0 +1,1 @@
+sudo launchctl unload /library/launchdaemons/com.crashplan.engine.plist

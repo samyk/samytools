@@ -1,0 +1,294 @@
+#!/usr/bin/perl
+
+# download datasheet
+
+my $HOST = "http://www.datasheetdir.com";
+use samyweb;
+die "usage: $0 [-s (starts) | -e (ends) | -c (contains, default)] <datasheet ...>\n" unless @ARGV;
+
+my $searchmethod = 2;
+if ($ARGV[0] eq '-s')
+{
+	shift @ARGV;
+	$searchmethod = 1;
+}
+elsif ($ARGV[0] eq '-e')
+{
+	shift @ARGV;
+	$searchmethod = 3;
+}
+elsif ($ARGV[0] eq '-c')
+{
+	shift @ARGV;
+	$searchmethod = 2;
+}
+
+my $s = samyweb->new;
+
+foreach my $ic (@ARGV)
+{
+	my $html = $s->get({ url => "$HOST/search.php", form => { part => $ic, searchmethod => $method, search => 'Search' }});
+	my $pdf = 1;
+	my @ics;
+
+	#<td class="td1"> <a href='SN8P2501BP+Microcontrollers-8bit'>SN8P2501BP</a>  <br/><a href='SN8P2501BS+Microcontrollers-8bit'>SN8P2501BS</a>  <br/><a href='SN8P2501BX+Microcontrollers-8bit'>SN8P2501BX</a>  <br/><a href='SN8P2501BPDG+Microcontrollers-8bit'>SN8P2501BPDG</a>  <br/><a href='SN8P2501BSB+Microcontrollers-8bit'>SN8P2501BSB</a>  <br/>  <br/>   </td>                                                    
+
+
+	print $html;
+	while ($html =~ s/href='(.*?)'>(.*?)<\/a>\s*(?:&nbsp;)*\s*By (.*?)<\/li>\s*<li.*?>(.*?)<//mi)
+	{
+		my ($url, $name, $by, $desc) = ($1, $2, $3, $4);
+		$desc =~ s/^\s*//;
+		$name =~ s/^\s*//;
+		$by   =~ s/^\s*//;
+		$desc =~ s/\s*$//;
+		$name =~ s/\s*$//;
+		$by   =~ s/\s*$//;
+
+		push @ics, [$url, $name, $by, $desc];
+		print "$pdf: $name ($desc) $by\n";
+		$pdf++;
+	}
+
+	my $i;
+	while ($i !~ /^\d+$/)
+	{
+		print "> ";
+		chomp($i = <STDIN>);
+		$i =~ s/\s*//;
+	}
+	dl($ics[$i+1]);
+}
+
+
+sub dl
+{
+	my ($url, $name, $by, $desc) = @{$_[0]};
+
+	$url =~ /(.*?)\+/;
+	print $s->get({ url => "$HOST/go-$1.pdf", referer => "$HOST/$1+download" });
+}
+
+__DATA__
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<!--
+-->
+<head >
+	<title>N8P2501B datasheet,N8P2501B Pinout,N8P2501B application circuits,Search List</title>
+	<meta name="description" content="N8P2501B datasheet,N8P2501B Pinout,N8P2501B application circuits can be download from datasheetdir">
+	<meta name="keywords" content="N8P2501B datasheet,N8P2501B Pinout,N8P2501B circuits">
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+	<link rel="stylesheet" rev="stylesheet" href="./css/category.css" type="text/css" media="all">
+	<meta content="all" name="robots">
+	<script type="text/javascript">
+	function searchSubmit() {
+		var srch = document.myfrm.part.value; 
+			
+			// Trim string
+				var trimmed =  srch.replace(/[^A-Za-z0-9.-]/gi,"").replace(/^\s+/,"").replace(/\s+$/,"");
+					
+					if ( trimmed.length < 3)  {
+							document.getElementById('srchError1').style.display = 'block';
+									document.myfrm.part.focus();
+											return false;
+												}
+													
+													return true;
+
+													}                
+													</script>
+													</head>
+													    <body>
+
+															<div id="header">
+															  <div id="c_header_logo">
+																    <div><a href="http://www.datasheetdir.com/" title="Datasheet"> <img src="./css/logo.gif" alt="datasheet" height="65" width="205"  border="0"></a></div>
+																		  </div>
+																			 <!--c_header_logo-->
+
+																			   <!-- Search -->
+																				   <div id="c_header_search">  
+																					     <form id="myfrm" name="myfrm" action="./search.php" method="post" onSubmit="return searchSubmit();">			   
+																									  <strong>Part Number</strong> <input maxlength="40" size="10" name="part" value="" type="text" class="searchInput">			   
+																												   <select name="searchmethod" class="selectInput">
+																																		<option value="1">Starts with</option>
+																																							<option value="2">Contains</option>
+																																												<option value="3">Ends with</option>
+																																														   </select>						   
+																																															            <input type="submit" value="Search" name="search" class="searchSubmit"/>		
+																																																					          <div id="srchError1">Please enter a minimum of 3 valid characters (alphanumeric, period, or hyphen).</div>
+																																																										    </form>
+																																																															
+																																																												        <div class="menu3-index" id="menu3">Hot:<a href="/78L05+Regulators">78L05</a><a href="/LM1117+LDO-Regulators">LM1117</a><a href="/89C51+8051-Microcontrollers">89C51</a><a href="/LM386+Audio-Power-Amplifier">LM386</a><a href="/79L05+Regulators">79L05</a><a href="/UA741+Operational-Amplifiers">UA741</a><a href="/MAX232+RS-232">MAX232</a><a href="/74HC04+Inverters-Gates">74HC04</a><a href="/NE555+Timers">NE555</a><a href="/PIC16F87+PIC-Microcontrollers">PIC16F87</a>   
+																																																																	</div>  
+																																																																	  </div>
+																																																																		</div>
+
+																																																																		<center><iframe src="http://search.supplyframe.com/partner/19/search/N8P2501B" align="top" frameborder="0" height="324" marginheight="0" marginwidth="0" scrolling="no" width="726"></iframe></center>
+																																																																		  
+																																																																		<div class="clr"></div>
+																																																																		<div id="row_top">
+
+																																																																		<div class="column_right">
+
+																																																																		  <div id="c_job_counter">
+																																																																			   
+																																																																			  </div><!--c_job_counter-->
+
+																																																																				</div><!--column_right-->
+
+																																																																				<div class="column_left">
+
+																																																																				  <div id="c_search_title">
+																																																																					    <b> N8P2501B search results</b>
+																																																																							  </div><!--c_search_title-->
+
+
+																																																																								  <div class="clear"></div>
+
+																																																																									</div><!--column_left-->
+
+																																																																									</div><!--row_top-->
+
+																																																																									<div class="colmask leftmenu">
+																																																																									    <div class="colright">
+																																																																											        <div class="col1wrap">
+																																																																															            <div class="col1">
+																																																																																					                <!-- Column 2 start -->
+																																																																																													                
+																																																																																													                 
+																																																																																													   <DIV class="leftbar_bgcolor">
+																																																																																														           <UL>
+																																																																																																			             <LI class="width_02">Part numbers </LI>
+																																																																																																									             <LI class="width_03">Description</LI>
+																																																																																																															           </UL>
+																																																																																																																				           <DIV class="clear"></DIV>
+																																																																																																																									         </DIV>
+																																																																																																																													           <DIV class="list_product">
+																																																																																																																																				 <ul>
+																																																																																																																																				                   <li><a style="padding-left: 0px;"  href="./SN8P2501B+Microcontrollers-8bit"   ><STRONG>SN8P2501B</STRONG></a> &nbsp;&nbsp; By Sonix Technology Co., Ltd. </li> 
+																																																																																																																																													                   <li  class="pad_top_5px break"> 8-Bit Micro-Controller</li>
+																																																																																																																																																						           </ul>
+
+																																																																																																																																																											           <div class="clear"></div>
+																																																																																																																																																																           
+																																																																																																																																																																         </div> <DIV class="list_product">
+																																																																																																																																																																						 <ul>
+																																																																																																																																																																						                   <li><a style="padding-left: 0px;"  href="./SN8P2501BP+Microcontrollers-8bit"   ><STRONG>SN8P2501BP</STRONG></a> &nbsp;&nbsp; By Sonix Technology Co., Ltd. </li> 
+																																																																																																																																																																															                   <li  class="pad_top_5px break"> 8-Bit Micro-Controller</li>
+																																																																																																																																																																																								           </ul>
+
+																																																																																																																																																																																													           <div class="clear"></div>
+																																																																																																																																																																																																		           
+																																																																																																																																																																																																		         </div> <DIV class="list_product">
+																																																																																																																																																																																																								 <ul>
+																																																																																																																																																																																																								                   <li><a style="padding-left: 0px;"  href="./SN8P2501BS+Microcontrollers-8bit"   ><STRONG>SN8P2501BS</STRONG></a> &nbsp;&nbsp; By Sonix Technology Co., Ltd. </li> 
+																																																																																																																																																																																																																	                   <li  class="pad_top_5px break"> 8-Bit Micro-Controller</li>
+																																																																																																																																																																																																																										           </ul>
+
+																																																																																																																																																																																																																															           <div class="clear"></div>
+																																																																																																																																																																																																																																				           
+																																																																																																																																																																																																																																				         </div> <DIV class="list_product">
+																																																																																																																																																																																																																																										 <ul>
+																																																																																																																																																																																																																																										                   <li><a style="padding-left: 0px;"  href="./SN8P2501BX+Microcontrollers-8bit"   ><STRONG>SN8P2501BX</STRONG></a> &nbsp;&nbsp; By Sonix Technology Co., Ltd. </li> 
+																																																																																																																																																																																																																																																			                   <li  class="pad_top_5px break"> 8-Bit Micro-Controller</li>
+																																																																																																																																																																																																																																																												           </ul>
+
+																																																																																																																																																																																																																																																																	           <div class="clear"></div>
+																																																																																																																																																																																																																																																																						           
+																																																																																																																																																																																																																																																																						         </div> <DIV class="list_product">
+																																																																																																																																																																																																																																																																												 <ul>
+																																																																																																																																																																																																																																																																												                   <li><a style="padding-left: 0px;"  href="./SN8P2501BPDG+Microcontrollers-8bit"   ><STRONG>SN8P2501BPDG</STRONG></a> &nbsp;&nbsp; By Sonix Technology Co., Ltd. </li> 
+																																																																																																																																																																																																																																																																																					                   <li  class="pad_top_5px break"> 8-Bit Micro-Controller</li>
+																																																																																																																																																																																																																																																																																														           </ul>
+
+																																																																																																																																																																																																																																																																																																			           <div class="clear"></div>
+																																																																																																																																																																																																																																																																																																								           
+																																																																																																																																																																																																																																																																																																								         </div> <DIV class="list_product">
+																																																																																																																																																																																																																																																																																																														 <ul>
+																																																																																																																																																																																																																																																																																																														                   <li><a style="padding-left: 0px;"  href="./SN8P2501BSB+Microcontrollers-8bit"   ><STRONG>SN8P2501BSB</STRONG></a> &nbsp;&nbsp; By Sonix Technology Co., Ltd. </li> 
+																																																																																																																																																																																																																																																																																																																							                   <li  class="pad_top_5px break"> 8-Bit Micro-Controller</li>
+																																																																																																																																																																																																																																																																																																																																           </ul>
+
+																																																																																																																																																																																																																																																																																																																																					           <div class="clear"></div>
+																																																																																																																																																																																																																																																																																																																																										           
+																																																																																																																																																																																																																																																																																																																																										         </div>
+																																																																																																																																																																																																																																																																																																																																														  <script type="text/javascript"><!--
+																																																																																																																																																																																																																																																																																																																																															google_ad_client = "pub-6293332905836693";
+																																																																																																																																																																																																																																																																																																																																															/* 336x280, file */
+																																																																																																																																																																																																																																																																																																																																															google_ad_slot = "3274707879";
+																																																																																																																																																																																																																																																																																																																																															google_ad_width = 336;
+																																																																																																																																																																																																																																																																																																																																															google_ad_height = 280;
+																																																																																																																																																																																																																																																																																																																																															//-->
+																																																																																																																																																																																																																																																																																																																																															</script>
+																																																																																																																																																																																																																																																																																																																																															<script type="text/javascript"
+																																																																																																																																																																																																																																																																																																																																															src="http://pagead2.googlesyndication.com/pagead/show_ads.js">
+																																																																																																																																																																																																																																																																																																																																															</script>
+																																																																																																																																																																																																																																																																																																																																															        
+																																																																																																																																																																																																																																																																																																																																																			<!-- Column 2 end -->
+																																																																																																																																																																																																																																																																																																																																																			            </div>
+																																																																																																																																																																																																																																																																																																																																																									        </div>
+																																																																																																																																																																																																																																																																																																																																																													        <div class="col2">
+																																																																																																																																																																																																																																																																																																																																																																	            <!-- Column 1 start -->
+																																																																																																																																																																																																																																																																																																																																																																										   
+																																																																																																																																																																																																																																																																																																																																																																											<div class="panel">
+																																																																																																																																																																																																																																																																																																																																																																											<h5><font color='red'>Hot categories </font></h5>
+																																																																																																																																																																																																																																																																																																																																																																											   <script type="text/javascript"><!--
+																																																																																																																																																																																																																																																																																																																																																																												 google_ad_client = "pub-6293332905836693";
+																																																																																																																																																																																																																																																																																																																																																																												 /* 160x600, left */
+																																																																																																																																																																																																																																																																																																																																																																												 google_ad_slot = "3748249226";
+																																																																																																																																																																																																																																																																																																																																																																												 google_ad_width = 160;
+																																																																																																																																																																																																																																																																																																																																																																												 google_ad_height = 600;
+																																																																																																																																																																																																																																																																																																																																																																												 //-->
+																																																																																																																																																																																																																																																																																																																																																																												 </script>
+																																																																																																																																																																																																																																																																																																																																																																												 <script type="text/javascript"
+																																																																																																																																																																																																																																																																																																																																																																												 src="http://pagead2.googlesyndication.com/pagead/show_ads.js">
+																																																																																																																																																																																																																																																																																																																																																																												 </script>
+																																																																																																																																																																																																																																																																																																																																																																												 <ul class="rbList">
+																																																																																																																																																																																																																																																																																																																																																																													<li> <a href='Regulators'  >Regulators</a> </li>   <li> <a href='Linear-Voltage-Regulators'  >Linear Voltage Regulators</a> </li>   <li> <a href='LDO-Regulators'  >Low Drop Out Regulators</a> </li>   <li> <a href='Shunt-Regulators'  >Shunt Regulators</a> </li>   <li> <a href='Switching-Regulators'  >Switching Regulators</a> </li>   <li> <a href='DC-DC-Converters'  >DC-DC Converters</a> </li>   <li> <a href='DC-DC-Controllers'  >DC-DC Controllers</a> </li>   <li> <a href='Charge-Pumps'  >Charge Pumps</a> </li>   <li> <a href='Step-down'  >Step-down</a> </li>   <li> <a href='Step-up'  >Step-up</a> </li>   <li> <a href='Power-Factor-Controllers'  >Power Factor Controllers</a> </li>   <li> <a href='Battery-Chargers'  >Battery Chargers</a> </li>   <li> <a href='Battery-Protectors-Monitors'  >Battery Protectors & Monitors</a> </li>   <li> <a href='Display-LED-Power'  >Display & LED Power</a> </li>   <li> <a href='White-LED-Drivers'  >White LED Drivers</a> </li>   <li> <a href='LED-Drivers'  >LED Drivers</a> </li>   <li> <a href='CCFL-Controllers'  >CCFL Controllers</a> </li>   <li> <a href='Hot-Swap'  >Hot Swap</a> </li>   <li> <a href='Voltage-Supervisors'  >Voltage Supervisors</a> </li>   <li> <a href='Voltage-References'  >Voltage References</a> </li>   <li> <a href='AC-DC-Converters-Switching'  >AC-DC Converters/Switching</a> </li>   <li> <a href='MOSFET-Drivers'  >MOSFET Drivers</a> </li>   <li> <a href='PWM-Controllers'  >PWM Controllers</a> </li>   <li> <a href='Power-Drivers'  >Power Drivers</a> </li>   <li> <a href='Microprocessor-Supervisors'  >Microprocessor Supervisors</a> </li>   <li> <a href='Power-Modules'  >Power Modules</a> </li>   <li> <a href='LCD-Power-Supply'  >LCD Power Supply</a> </li>   <li> <a href='IGBT-Driver'  >IGBT Driver</a> </li>   <li> <a href='Power-Distribution-Switches'  >Power Distribution/Switches</a> </li>   <li> <a href='High-Voltage-Regulators'  >High Voltage Regulators</a> </li>   <li> <a href='Precision-Voltage-Regulator'  >Precision Voltage Regulator</a> </li>   <li> <a href='Inverting-Switching-Regulator'  >Inverting Switching Regulator</a> </li>   <li> <a href='PMIC'  >Power Management IC( PMICs)</a> </li>   <li> <a href='Sequencers'  >Sequencers</a> </li>   <li> <a href='SMPS-Controller'  >SMPS Controller</a> </li>   <li> <a href='Energy-Measurement-IC'  >Energy Measurement IC</a> </li> 
+
+																																																																																																																																																																																																																																																																																																																																																																													</ul>
+																																																																																																																																																																																																																																																																																																																																																																													</div>
+																																																																																																																																																																																																																																																																																																																																																																													 
+																																																																																																																																																																																																																																																																																																																																																																													        
+																																																																																																																																																																																																																																																																																																																																																																																 
+																																																																																																																																																																																																																																																																																																																																																																															 
+																																																																																																																																																																																																																																																																																																																																																																																<!-- Column 1 end -->
+																																																																																																																																																																																																																																																																																																																																																																																        </div>
+																																																																																																																																																																																																																																																																																																																																																																																				    </div>
+																																																																																																																																																																																																																																																																																																																																																																																						</div>
+
+																																																																																																																																																																																																																																																																																																																																																																																						<div id="footer">
+																																																																																																																																																																																																																																																																																																																																																																																							 
+																																																																																																																																																																																																																																																																																																																																																																																						 <a href="./about.htm" >About Us</a> - 
+																																																																																																																																																																																																																																																																																																																																																																																							<a href="http://www.datasheetdir.com/links.htm">Links</a> - <a href="mailto:&#083;&#117;&#112;&#112;&#111;&#114;&#116;&#064;&#068;&#097;&#116;&#097;&#115;&#104;&#101;&#101;&#116;&#068;&#105;&#114;&#046;&#099;&#111;&#109;&#032;">Contact Us - &#083;&#117;&#112;&#112;&#111;&#114;&#116;&#064;&#068;&#097;&#116;&#097;&#115;&#104;&#101;&#101;&#116;&#068;&#105;&#114;&#046;&#099;&#111;&#109;&#032;</a>  
+																																																																																																																																																																																																																																																																																																																																																																																							 
+																																																																																																																																																																																																																																																																																																																																																																																								 
+																																																																																																																																																																																																																																																																																																																																																																																								 <br> <br><br>
+
+																																																																																																																																																																																																																																																																																																																																																																																									 </div>
+
+																																																																																																																																																																																																																																																																																																																																																																																									  
+
+																																																																																																																																																																																																																																																																																																																																																																																									 </body>
+
+																																																																																																																																																																																																																																																																																																																																																																																									 <script type="text/javascript">
+
+																																																																																																																																																																																																																																																																																																																																																																																									   var _gaq = _gaq || [];
+																																																																																																																																																																																																																																																																																																																																																																																										   _gaq.push(['_setAccount', 'UA-81436-26']);
+																																																																																																																																																																																																																																																																																																																																																																																											   _gaq.push(['_trackPageview']);
+
+																																																																																																																																																																																																																																																																																																																																																																																												   (function() {
+																																																																																																																																																																																																																																																																																																																																																																																													     var ga = document.createElement('script'); ga.type = 'text/javascript';
+																																																																																																																																																																																																																																																																																																																																																																																															 ga.async = true;
+																																																																																																																																																																																																																																																																																																																																																																																															     ga.src = ('https:' == document.location.protocol ? 'https://ssl' :
+																																																																																																																																																																																																																																																																																																																																																																																																	 'http://www') + '.google-analytics.com/ga.js';
+																																																																																																																																																																																																																																																																																																																																																																																																	     var s = document.getElementsByTagName('script')[0];
+																																																																																																																																																																																																																																																																																																																																																																																																			 s.parentNode.insertBefore(ga, s);
+																																																																																																																																																																																																																																																																																																																																																																																																			   })();
+
+																																																																																																																																																																																																																																																																																																																																																																																																				 </script>
+
+																																																																																																																																																																																																																																																																																																																																																																																																				 </html>
+																																																																																																																																																																																																																																																																																																																																																																																																				 <!---->

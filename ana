@@ -1,0 +1,35 @@
+#!/usr/bin/perl
+
+# don't show incomplete rows
+# show manufacturer of device based off of MAC (OUI)
+
+my $ARP = "/usr/sbin/arp";
+my $filename = "/b/data/oui.bdb" ;
+my %h;
+
+use strict;
+use BerkeleyDB;
+
+tie %h, "BerkeleyDB::Hash",
+	-Filename => $filename,
+	-Flags    => DB_CREATE
+	or die "Cannot open file $filename: $! $BerkeleyDB::Error\n" ;
+
+print map { s/((\w+:\w+:\w+):\w+:\w+:\w+) /$1 . " (" . mac($2) . ") "/e if !/(ff:){5}/; $_ } grep { !/\(incomplete\)/ } `$ARP -na`;
+
+sub mac
+{
+	my $mac = shift;
+	$mac =~ s/:(.):/:0$1:/g;
+	$mac =~ s/:(.)$/:0$1/g;
+	$mac =~ s/^(.):/0$1:/g;
+	$mac =~ s/\W//g;
+	$mac = lc($mac);
+	$mac = $h{$mac};
+
+	$mac =~ s/^(.*?)\n.*$/$1/s;
+	$mac =~ s/,? inc\.?$//i;
+	$mac =~ s/^\s*//;
+	$mac =~ s/\s*$//;
+	return $mac || "?";
+}

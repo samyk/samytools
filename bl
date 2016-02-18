@@ -1,0 +1,25 @@
+#!/usr/bin/perl
+
+die "usage: $0 [-h (hackrf)] <freq>\n" unless @ARGV;
+
+my $hackrf = shift if $ARGV[0] eq "-h";
+my $freq = shift;
+
+if ($hackrf)
+{
+	run("mkfifo /tmp/.hrf");
+	run("hackrf_transfer -r /tmp/.hrf -f $freq -s 8000000 &");
+	run("tail -f /tmp/.hrf | baudline -quadrature -channels 2 -flipcomplex -format u8 -samplerate 8000000 -stdin");
+	run("killall hackrf_transfer");
+}
+else
+{
+	run("rtl_sdr -f $freq -s 2000000 - | baudline -reset -samplerate 2000000 -channels 2 -format u8 -quadrature -stdin");
+}
+
+
+sub run
+{
+	print "$_[0]\n";
+	system($_[0]);
+}

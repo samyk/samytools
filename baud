@@ -1,0 +1,22 @@
+#!/usr/bin/perl
+
+die "usage: $0 <bit width[ums]> [bit width...]
+example: $0 1ms 300us (gcd=100us, baud=1000)\n" unless @ARGV;
+
+# convert everything to us
+foreach my $arg (@ARGV)
+{
+	$arg =~ s/^([\d.]+)s?$/$1 * 1_000_000/ei;
+	$arg =~ s/^([\d.]+)ms?$/$1 * 1_000/ei;
+	$arg =~ s/^([\d.]+)us?$/$1/ei;
+}
+
+my $gcd = gcd(@ARGV);
+$gcd =~ s/000000$/s/;
+$gcd =~ s/000$/ms/;
+$gcd =~ s/([^s])$/${1}us/;
+print "Values (us): @ARGV\n";
+print "GCD: $gcd\n";
+print "Baudrate: " . (1_000_000 / $gcd) . "\n";
+
+sub gcd { $_[0] ? gcd($_[1] % $_[0], $_[0]) : $_[1] }

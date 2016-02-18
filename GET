@@ -1,0 +1,23 @@
+#!/usr/bin/perl
+
+use samyweb;
+use strict;
+no strict 'subs';
+
+die "usage: $0 <url> [ip]\n" unless @ARGV;
+my $s = samyweb->new();
+
+my ($url, $ip) = @ARGV;
+
+if ($ip)
+{
+	my ($host) = ($url =~ m|^(?:https?://)?([^/]+)|i);
+	$s->hosts({ $host => $ip });
+	print "set host $host to $ip\n";
+}
+	
+my $html = $s->get({ url => $url });
+#my $html = $s->get({ url => $url, form => "p=$pass"});
+print STDERR $@;
+print $html;
+print "\n";

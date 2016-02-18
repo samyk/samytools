@@ -1,0 +1,11 @@
+#!/usr/bin/perl
+
+use strict;
+
+die "usage: $0 <numbers>\n" unless @ARGV;
+my $sum;
+$sum += $_ for @ARGV;
+
+print "Count: " . @ARGV . "\n";
+print "Total: $sum\n";
+print "Average: " . int($sum/@ARGV) . "\n";

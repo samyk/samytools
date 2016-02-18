@@ -1,0 +1,527 @@
+#!/usr/bin/perl
+
+use bignum;
+
+my $debug = 0;
+my $VERSION = "0.42";
+#
+# '3', by samy [cp5@LucidX.com]
+# ver 0.42  - April 14, 2002 - 
+# TODO/changeLog is at http://code.lucidx.com/TODO.3
+#
+# thanks to cseg (Fred Souza) for his help
+# and his own original idea which i borrowed:
+# http://cseg.lucidx.com/projects/
+#
+# examples:
+# > x = 3 ; y = (1 .. 3) ; z = (int(reverse(bd(110011))/10)) 
+# > (z .. x) ** $_, [ y ]
+# = [[1], [2], [3]],  [[1], [4], [9]],  [[1], [8], [27]]
+#
+# > x = 3
+# > y = 1..3
+# > x
+# = 3
+# > y
+# = [1], [2], [3]
+# > (1 .. x) ** $_, [ y ]
+# = [[1], [2], [3]],  [[1], [4], [9]],  [[1], [8], [27]]
+#
+# > ((bd(1010)-5)
+# ]> *3 - reverse(
+# ]]> 51)
+# ]> ^ 1)
+# = 1
+#
+# shell$ 3 bd 10011
+# 19
+# shell$ 3 Dd 127.0.0.1
+# 2130706433
+# shell$ 3 aX abc
+# \x61 \x62 \x63
+#
+# ooo - () ** * / % + - . << >> & | ^
+#
+
+my $baseconv = shift(@ARGV);
+my @values = @ARGV;
+my %namespace;
+
+my %conv = (
+	"b" => "bin", # binary
+	"d" => "dec", # decimal
+	"o" => "oct", # octal
+	"h" => "hex", # hexadecimal
+	"a" => "asc", # ascii
+	"B" => "bcd", # BCD
+	"P" => "pbc", # packed BCD
+	"D" => "dot", # dotted-quad (decimal)
+	"O" => "dto", # dotted-octal
+	"H" => "dth", # dotted-hexadecimal
+	"X" => "bbh", # byte-by-byte hexadecimal
+	"Y" => "bbd", # byte-by-byte decimal
+	"Z" => "bbo", # byte-by-byte octal
+);
+my $convs = join("", keys(%conv));
+
+unless ($baseconv || $baseconv =~ /^calc/i) {
+ my $alive = 1;
+ my ($parens, $data) = (0, "");
+ print ": Type `help` for help.\n\n";
+ while ($alive) {
+  print "]" x $parens;
+  print "[" x ($parens * -1);
+  print "> ";
+
+  chomp($data .= <STDIN>);
+  $parens = ($data =~ tr|(||) - ($data =~ tr|)||);
+  if ($data =~ /^\s*(?:help|\?)\s*$/mi) {
+   &help();
+   $data = "";
+  }
+  elsif ($data =~ /^\s*(?:die|quit|exit)\s*$/mi) {
+   $alive = 0; # die later in case we have unfinished business
+  }
+  elsif ($parens != 0) {
+   next;
+  }
+
+  else {
+   foreach (split(/;/, $data)) {
+    my @data = &operate($_);
+    if ($#data > 0) {
+     print "= [", join("],  [", @data), "]\n";
+    }
+    elsif ($#data != -1) {
+     print "= $data[0]\n";
+    }
+   }
+   $data = "";
+   $parens = 0;
+  }
+ }
+ die "\n3 -- by samy [cp5\@LucidX.com]\n";
+}
+
+$baseconv =~ /^(.)(.)$/;
+my ($first, $second) = ($conv{$1} . "2bin", "bin2" . $conv{$2});
+
+foreach my $value (@values) {
+ print &{$second}(&{$first}($value)) . "\n";
+}
+exit 0;
+
+sub operate {
+ my ($string) = @_;
+ my (%intns, $ops, @ops, @return);
+ my $origstr = $string;
+ $string =~ s/\s*//g;
+ $string =~ s/,\[([^\]]+)\]$//;
+ $string = "($string)";
+ if ($ops = $1) {
+  while ($ops =~ /\@?\$?([a-zA-Z_]\w+|[a-zA-Z])\[([^\]]+)\]/) {
+   my ($tmp1, $tmp2) = ($1, $2);
+   $tmp2 =~ s/([^,]+)\.\.([^,]+)/join(",", $1..$2)/ge;
+   $ops =~ s/\@?\$?(?:[a-zA-Z_]\w+|[a-zA-Z])\[[^\]]+\]/join(",", @{$namespace{$tmp1}}[split(\/,\/, $tmp2)])/e;
+  }
+  $ops =~ s/\@?\$?([a-zA-Z_]\w+|[a-zA-Z])/join(",", @{$namespace{$1}})/eg;
+  $ops =~ s/([^,]+)\.\.([^,]+)/join(",", $1..$2)/ge;
+  @ops = split(/,/, $ops);
+ }
+ push(@ops, 0) unless @ops;
+ foreach my $op (@ops) {
+  my $nstr = my $str = $string;
+  $namespace{"_"} = $op;
+  my (@ret, @iops);
+  while ($str =~ /\@?\$?([a-zA-Z_]\w*|\d+|\d*\.\d+)\.\.\@?\$?([a-zA-Z_]\w*|\d+|\d*\.\d+)/g) {
+   my ($tmp1, $tmp2) = ($1, $2);
+   $tmp1 = $namespace{$tmp1} if $tmp1 =~ /^[a-zA-Z_]/;
+   $tmp2 = $namespace{$tmp2} if $tmp2 =~ /^[a-zA-Z_]/;
+   $str =~ s/\@?\$?(?:[a-zA-Z_]\w*|\d+|\d*\.\d+)\.\.\@?\$?(?:[a-zA-Z_]\w*|\d+|\d*\.\d+)/\$__/;
+   push(@iops, $tmp1 .. $tmp2);
+   $nstr = $str;
+  }
+  while ($str =~ /\@?\$?([a-zA-Z_]\w*|\d+|\d*\.\d+),\@?\$?([a-zA-Z_]\w*|\d+|\d*\.\d+)/g) {
+   my ($tmp1, $tmp2) = ($1, $2);
+   $tmp1 = $namespace{$tmp1} if $tmp1 =~ /^[a-zA-Z_]/;
+   $tmp2 = $namespace{$tmp2} if $tmp2 =~ /^[a-zA-Z_]/;
+   $str =~ s/\@?\$?(?:[a-zA-Z_]\w*|\d+|\d*\.\d+),\@?\$?(?:[a-zA-Z_]\w*|\d+|\d*\.\d+)/\$__/;
+   push(@iops, $tmp1, $tmp2);
+   $nstr = $str;
+  }
+
+  # pretend parse tree starts here
+  my (@nvals, $type);
+  while ($str) {
+   my ($ins, $dins);
+   if ($str =~ s/^([a-zA-Z][a-zA-Z0-9]*)\(//) {
+    if (length($1) == 2 || $1 eq "factorial") {
+     $type = "VFunc";
+    }
+    else {
+     $type = "Func";
+    }
+   }
+   elsif ($str =~ s/^\$?\@?([a-zA-Z]\w*)([^\.=])/$2/) {
+    my $tmp = $1;
+    if (ref($namespace{$tmp}) eq "ARRAY") {
+     push(@iops, @{$namespace{$tmp}});
+     $type = "Var";
+     $ins = "__";
+    }
+    else {
+     $str = $namespace{$tmp} . $str;
+     $dins = 1;
+     $type = "Num";
+    }
+   }
+   elsif ($str =~ s/^\$?\@?([_a-zA-Z]\w*)//) {
+    $type = "Var";
+   }
+   elsif ($str =~ s/^((?:0*(?:2(?:[0-4]\d|5[0-5])|1?\d{1,2})\.){3}(?:2(?:[0-4]\d|5[0-5])|1?\d{1,2}))//x) {
+    $type = "IP";
+   }
+   elsif ($str =~ s/^(\d*\.\d+|\d+)//) {
+    $type = "Num";
+   }
+   elsif ($str =~ s/^([^\w()\@\$,\.\:"'=]+)//) {
+    $type = "OpChr";
+   }
+   elsif ($str =~ s/^([(),])//) {
+    $type = "Chr";
+   }
+   elsif ($str =~ s/^(\.=)//) {
+    $type = "Append";
+   }
+   elsif ($str =~ s/^(=)//) {
+    $type = "Assign";
+   }
+   elsif ($str =~ s/^("[^"]*")// || $str =~ s/^('[^']*')//) {
+    $type = "Str";
+   }
+   else {
+    return "error: bad input near: " . substr($str, 0, 5);
+   }
+   unless ($dins) {
+    if ($ins) {
+     push (@nvals, [$ins, $type]);
+    }
+    else {
+     push (@nvals, [$1, $type]);
+    }
+   }
+  }
+  push(@iops, 0) unless @iops;
+  # end of pretend parse tree
+
+  foreach my $iop (@iops) {
+   my @vals = map [@$_], @nvals;
+   $namespace{'__'} = $iop;
+   for (my $i = $#vals; $i >= 0; $i--) {
+    my ($elem, $type) = @{$vals[$i]};
+    print "$elem\t-> $type\n" if $debug;
+
+    if ($type eq "Assign") {
+     push(@{$namespace{"_assign"}}, "$vals[$i-1][0]") unless grep { '^$vals[$i-1][0]$' } @{$namespace{"_assign"}};
+     @{$vals[$i]} = ("", "Empty");
+     @{$vals[$i-1]} = ("", "Empty");
+    }
+
+    if ($type eq "Append") {
+     push(@{$namespace{"_append"}}, "$vals[$i-1][0]") unless grep { '^$vals[$i-1][0]$' } @{$namespace{"_append"}};
+     @{$vals[$i]} = ("", "Empty");
+     @{$vals[$i-1]} = ("", "Empty");
+    }
+
+    if ($type eq "Var") {
+     if (ref($namespace{$vals[$i][0]}) eq "ARRAY") {
+      @{$vals[$i]} = push(@ret, @{$namespace{$vals[$i][0]}});
+     }
+     else {
+      @{$vals[$i]} = ($namespace{$vals[$i][0]}, "Num");
+     }
+    }
+    if ($elem eq "(" || $type eq "Func" || $type eq "VFunc") {
+     my ($string, $func);
+     my $tmp1 = $i;
+     my $tmp2 = 0;
+     do {
+      if ($tmp2++ == 0) {
+       $func = $vals[$tmp1][0];
+      }
+      else {
+       $string .= $vals[$tmp1][0] if $vals[$tmp1][0];
+      }
+     } while ($vals[$tmp1++][0] ne ")");
+     $tmp1--;
+     @{$vals[$tmp1]} = ("", "Empty");
+     chop($string);
+     for ($i .. $tmp1) {
+      @{$vals[$_]} = ("", "Empty");
+     }
+     $vals[$i][0] = eval($string);
+     if ($type eq "VFunc") {
+      if ($func =~ /^([a-z])([a-z])$/i) {
+       $vals[$i][0] = &{'bin2' . $conv{$2}}(&{$conv{$1} . '2bin'}("$vals[$i][0]"));
+      }
+      elsif ($func eq "factorial") {
+       my $tmp = 1;
+       foreach (1 .. $vals[$i][0]) {
+        $tmp *= $_;
+       }
+       $vals[$i][0] = $tmp;
+      }
+     }
+     elsif ($type eq "Func") {
+      $vals[$i][0] = eval("$func(\"$vals[$i][0]\")");
+     }
+    }
+   }
+   push(@ret, eval(join("", map { $$_[0] } @vals)));
+  }
+  push(@return, ("[" . join("], [", @ret) . "]"));
+ }
+ my $commas = 0;
+ foreach (@return) {
+  $commas += tr/,//;
+ }
+ unless ($commas) {
+  foreach (@return) {
+   s/^.//;
+   s/.$//;
+  }
+ }
+ if ($#{$namespace{"_assign"}} >= 0) {
+  foreach my $asn (@{$namespace{"_assign"}}) {
+   @{$namespace{$asn}} = ();
+   my @tmp = @return;
+   @return = ();
+   foreach (@tmp) {
+    s/^\[//;
+    s/\]$//;
+    if (@tmp > 1) {
+     push(@{$namespace{$asn}}, split(/\], \[/));
+    }
+    elsif (/,/) {
+     push(@{$namespace{$asn}}, split(/\], \[/));
+    }
+    else {
+     $namespace{$asn} = $_;
+    }
+   }
+  }
+  @{$namespace{"_assign"}} = ();
+  return ();
+ }
+
+ if ($#{$namespace{"_append"}} >= 0) {
+  foreach my $asn (@{$namespace{"_append"}}) {
+   my @tmp = @return;
+   @return = ();
+   foreach (@tmp) {
+    s/^\[//;
+    s/\]$//;
+    push(@{$namespace{$asn}}, split(/\], \[/));
+   }
+  }
+  @{$namespace{"_append"}} = ();
+  return ();
+ }
+
+ else {
+  return @return;
+ }
+}
+
+sub bin2bin {
+ my $val = shift;
+ $val =~ s/^0*//;
+ return $val;
+}
+
+sub bcd2bin {
+ my $val = shift;
+ $val =~ s/0000([01]{4})/&dec2bin(&bin2dec($1))/eg;
+ $val =~ s/^0*//;
+ return $val;
+}
+
+sub pbc2bin {
+ my $val = shift;
+ $val =~ s/([01]{4})/&bin2dec($1)/eg;
+ $val = &dec2bin($val);
+ $val =~ s/^0*//;
+ return $val;
+}
+
+sub dec2bin {
+ my $val = unpack("B*", pack("N", shift));
+ $val =~ s/^0*//;
+ return $val;
+}
+
+sub asc2bin {
+ my $val = unpack("B*", shift);
+# $val =~ s/^0*//;
+ return $val;
+}
+
+sub hex2bin {
+ my $val = shift;
+ my @vals;
+ push(@vals, hex($1)) while $val =~ s/(?:0x|\\x)?([A-F0-9]{1,2})//i;
+ $val = join("", unpack("B*", pack("C*", @vals)));
+ $val =~ s/^0*//;
+ return $val;
+}
+
+sub bbh2bin {
+ my $val = &hex2bin(shift);
+ $val =~ s/^0*//;
+ return $val;
+}
+
+sub bbo2bin {
+ my $val = &oct2bin(shift);
+ $val =~ s/^0*//;
+ return $val;
+}
+
+sub bbd2bin {
+ my $val = &dec2bin(shift);
+ $val =~ s/^0*//;
+ return $val;
+}
+
+sub oct2bin {
+ my $val = shift;
+ $val =~ s/^0// if length($val) > 1;
+ $val = unpack("B*", pack("C*", oct($val)));
+ $val =~ s/^0*//;
+ return $val;
+}
+
+sub dot2bin {
+ my $val = unpack("B36", pack("C4", split(/\./, shift)));
+ $val =~ s/^0*//;
+ return $val;
+}
+
+sub dto2bin {
+ my $val = shift;
+ $val =~ s/^0?(\d+)\.0?(\d+)\.0?(\d+)\.0?(\d+)$/&dot2bin("0$1.0$2.0$3.0$4")/e;
+ $val =~ s/^0*//;
+ return $val;
+}
+
+sub dth2bin {
+ my $val = shift;
+ $val =~ s/^(?:\\x|0x)?(\d+)\.(?:\\x|0x)?(\d+)\.(?:\\x|0x)?(\d+)\.(?:\\x|0x)?(\d+)$/&dot2bin("0x$1.0x$2.0x$3.0x$4")/e;
+ $val =~ s/^0*//;
+ return $val;
+}
+
+
+sub bin2dec {
+ my $val = shift;
+ my ($result, $place) = (0, 0);
+ while ($val =~ s/(.)$//) {
+  $result += 2 ** $place++ * $1;
+ }
+ return $result;
+}
+
+sub bin2oct {
+ return sprintf("0%o", &bin2dec(shift));
+}
+
+sub bin2hex {
+ return sprintf("0x%x", &bin2dec(shift));
+}
+
+sub bin2bbh {
+ return sprintf("\\x%x" x (length(&eight($_[0]))/8), unpack("C*", pack("B*", &eight(shift))));
+}
+
+sub bin2bbo {
+ return sprintf("0%o " x (length(&eight($_[0]))/8), unpack("C*", pack("B*", &eight(shift))));
+}
+
+sub bin2bbd {
+ return join(" ", unpack("C*", pack("B*", &eight(shift))));
+}
+
+sub bin2asc {
+ return pack("B*", &eight(shift));
+}
+
+sub bin2dot {
+ return join(".", unpack("C4", pack("B*", &eight(shift))));
+}
+
+sub bin2dto {
+ return sprintf("0%o.0%o.0%o.0%o", unpack("C4", pack("B*", &eight(shift))));
+}
+
+sub bin2bcd {
+ my $val = &bin2dec(shift);
+ $val =~ s/(.)/"0000" . sprintf("%04i", &dec2bin($1))/eg;
+ return $val;
+}
+
+sub bin2pbc {
+ my $val = &bin2dec(shift);
+ $val =~ s/(.)/sprintf("%04i", &dec2bin($1))/eg;
+ return $val;
+}
+
+sub bin2dth {
+ return sprintf("0x%x.0x%x.0x%x.0x%x", unpack("C4", pack("B*", &eight(shift))));
+}
+
+sub eight {
+ my $val = shift;
+ $val = "0" . $val while (length($val) % 8);
+ return $val;
+}
+
+sub help {
+ print
+"
+3 -- by samy [cp5\@LucidX.com]
+
+see $0's code for examples
+
+BASES:
+b  => binary,           a => ASCII,
+d  => decimal,          D => dotted quad,
+o  => octal,            O => dotted octal,
+h  => hexadecimal,      H => dotted hexadecimal,
+B  => BCD,              P => packed BCD,
+X  => byte-by-byte hexadecimal,
+Y  => byte-by-byte decimal,
+Z  => byte-by-byte octal,
+
+CORE FUNCTIONS: exit, help
+
+FUNCTIONS: base1base2(value), e.g.: dh(5), Dd(\"127.0.0.1\"), ah(\"abc\")
+  also:    sin(), reverse(), abs(), atan2(), cos(), exp(), int(),
+           sqrt(), log(), factorial()
+
+OPERATORS: + - * / % ** ^ | & << >> ( )
+            using a '(' at the beginning and leaving it open
+            after hitting 'Enter' will allow you to neatly
+            continue the equation on a new line(s) and you
+            would end the equation and get the result after
+            closing it with a )
+
+";
+#OTHER HELP TOPICS: namespace, commandline
+#
+#for more help on something, enter: help 'base/func/topic'
+#e.g., help b (for help on binary),
+#      help log (for help on log()),
+#      help delete (for help on delete()),
+#      help namespace (for help on the namespace topic),
+#      help operators (for all operators), etc.
+}

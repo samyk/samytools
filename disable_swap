@@ -1,0 +1,7 @@
+sudo launchctl unload -w /System/Library/LaunchDaemons/com.apple.dynamic_pager.plist
+sudo rm /private/var/vm/swapfile*
+
+
+# enable swap:
+# sudo ls
+# sudo /sbin/dynamic_pager -F /private/var/vm/swapfile &

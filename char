@@ -1,0 +1,24 @@
+#!/usr/bin/perl
+
+use strict;
+
+die "usage: $0 <file> [file ...]\n" unless @ARGV;
+
+my %x;
+foreach my $file (@ARGV)
+{
+	open(F, "<$file") || die "Can't read $file: $!";
+	my $d = join "", <F>;
+	close F;
+
+	while (length $d)
+	{
+		my $t = substr($d, 0, 1, "");
+		$x{ord($t)}++;
+	}
+}
+
+foreach (sort { $x{$a} <=> $x{$b} } keys %x)
+{
+	print chr($_) . " - $x{$_}\n";
+}

@@ -1,0 +1,42 @@
+#!/usr/bin/perl
+
+use strict;
+my %xram, %iram;
+
+sub mov
+{
+	my ($dst, $src) = @_;
+	$ram{$dst} = $src;
+}
+
+my $c = '8051';
+my %i = (
+	'8051' => {
+		'mov' => \&mov,
+	},
+);
+
+die "converts IDA ASM output into perl for testing\n\n" .
+	"usage: $0 <file>\n" unless @ARGV;
+
+my $file = shift;
+open(F, "<$file") || die "Can't read $file: $!";
+while (<F>)
+{
+	s/^code:(\w+)\s+//;
+	my $addy = $1;
+	s/\s+;.*//;
+
+	if (/^(\w+)(?:\s+(\S.*))$/)
+	{
+		my $func = $1;
+		my @params = split(/\s*,\s*/, $2);
+		print "&$func(@params)\n";
+		$i{$c}{$func}(@params);
+	}
+	else
+	{
+		print "Whack: $_";
+	}
+}
+close(F);
