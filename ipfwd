@@ -1,0 +1,36 @@
+#!/usr/bin/perl
+
+if (@ARGV == 1)
+{
+	fwd(shift);
+}
+elsif (@ARGV == 2)
+{
+	my ($on, $off) = @ARGV;
+
+	# turn back on when exiting
+	$SIG{INT} = sub { fwd(1); exit; };
+
+	while (1)
+	{
+		fwd(1);
+		sleep($on);
+
+		fwd(0);
+		sleep($off);
+
+	}
+}
+else
+{
+	system("sudo sysctl net.inet.ip.forwarding");
+	die "usage: $0 <0 | 1>  || <secs to forward> <secs to not forward>\n";
+}
+
+sub fwd
+{
+	system("sudo sysctl -w net.inet.ip.forwarding=$_[0]");
+	system("sudo sysctl -w net.inet.ip.fw.verbose=$_[0]");
+
+}
+
