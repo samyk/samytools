@@ -1,0 +1,384 @@
+// control Grbl-based CNC machine (Carvey, X-Carve, etc)
+// from an Xbox controller
+// by samy kamkar
+
+// data received: <Idle,MPos:-184.444,-91.687,-7.203,WPos:113.054,98.811,40.650,Pin:000|1|0000>
+
+var serialPort = require("serialport");
+serialPort.list(function (err, ports) {
+	ports.forEach(function(port) {
+		console.log(port.comName, port.pnpId, port.manufacturer);
+	});
+});
+
+var args = process.argv.slice(2);
+var XboxController = require('xbox-controller');
+var xbox = new XboxController();
+
+console.log(xbox.serialNumber + ' online');
+
+var SerialPort = require("serialport").SerialPort;
+var openSP = false;
+if (args[0])
+{
+	openSP = true;
+	serialPort = new SerialPort(args[0], {
+  baudrate: 115200
+});
+}
+
+function scale(x, x0, x1, y0, y1)
+{
+    var y = y0 + (y1 - y0) * (x - x0) / (x1 - x0)
+		return y;
+}
+
+function logslider(position, min, max) {
+	var neg = false;
+
+	if (position < 0)
+	{
+		position = Math.abs(position);
+		neg = true;
+	}
+
+	// position will be between 0 and 100
+	var minp = 0;
+	var maxp = 32768;
+
+	// The result should be between .0254mm - 2mm
+	var minv = Math.log(min ? min : 25);
+	var maxv = Math.log(max ? max : 30000); // faster??
+	//var maxv = Math.log(max ? max : 3000); // slower?? XXX test
+
+	// calculate adjustment factor
+	var scale = (maxv-minv) / (maxp-minp);
+
+	var out = Math.exp(minv + scale*(position-minp)) / 100000;
+	return neg ? out * -1 : out;
+}
+
+
+
+var gox, goy, goz, running;
+gox = goy = goz = running = 0;
+var xon = false;
+var cruisecontrol = false;
+
+var gcode = function(code, unimportant)
+{
+	if (unimportant && running)
+	{
+		console.log("GCODE [ignoring]> " + code);
+		return;
+	}
+
+	console.log("GCODE> " + code);
+	running = 1;
+	if (openSP)
+		serialPort.write(code + "\n", function(err, results) {
+			running = 0;
+			console.log('err ' + err);
+			console.log('results ' + results);
+		});
+};
+
+
+if (openSP)
+	serialPort.on("open", function () {
+		console.log('open');
+		serialPort.on('data', function(data) {
+			console.log('data received: ' + data);
+		});
+		gcode("?"); // current status
+		gcode("$X"); // kill alarm clock
+		gcode("?"); // current status
+		gcode("G90"); // absolute dist
+		gcode("G91"); // relative dist
+		gcode("G21"); // mm
+		//gcode("G28"); // return to home
+	});
+
+
+/*
+ * A,B,X,Y buttons
+ */
+
+xbox.on('a:press', function (key) {
+	gcode("G91");
+	gcode("G21");
+	gcode("G0 Z5");
+	gcode("M5");
+	//gcode("G28");
+  var message = JSON.stringify({ serialNumber: xbox.serialNumber, button: 'a', action:'press' });
+  console.log(message);
+});
+
+xbox.on('a:release', function(key) {
+  var message = JSON.stringify({ serialNumber: xbox.serialNumber, button: 'a', action:'release' });
+  console.log(message);
+});
+
+
+xbox.on('b:press', function(key) {
+  var message = JSON.stringify({ serialNumber: xbox.serialNumber, button: 'b', action:'press' });
+  console.log(message);
+});
+
+xbox.on('b:release', function(key) {
+  var message = JSON.stringify({ serialNumber: xbox.serialNumber, button: 'b', action:'release' });
+  console.log(message);
+});
+
+
+// CUT!
+xbox.on('x:press', function(key) {
+	cruisecontrol = false;
+	xon = true;
+	xbox.setLed(0x01);
+	gcode("M3 S12000");
+  var message = JSON.stringify({ serialNumber: xbox.serialNumber, button: 'x', action:'press' });
+  console.log(message);
+});
+
+xbox.on('x:release', function(key) {
+	xon = false;
+	if (!cruisecontrol)
+	{
+		xbox.setLed(0x06);
+		gcode("M5"); // stop cut
+	}
+
+  var message = JSON.stringify({ serialNumber: xbox.serialNumber, button: 'x', action:'release' });
+  console.log(message);
+});
+
+
+xbox.on('y:press', function(key) {
+  var message = JSON.stringify({ serialNumber: xbox.serialNumber, button: 'y', action:'press' });
+  console.log(message);
+});
+
+xbox.on('y:release', function(key) {
+  var message = JSON.stringify({ serialNumber: xbox.serialNumber, button: 'y', action:'release' });
+  console.log(message);
+});
+
+
+/*
+ * Triggers
+ */
+
+xbox.on('lefttrigger', function(position){
+  var message = JSON.stringify({ serialNumber: xbox.serialNumber, button: 'lefttrigger', action:position });
+  console.log(message);
+
+  xbox.rumble(0,position);
+});
+
+xbox.on('righttrigger', function(position){
+	if (xon)
+		cruisecontrol = true;
+
+  var message = JSON.stringify({ serialNumber: xbox.serialNumber, button: 'righttrigger', action:position });
+  console.log(message);
+
+  xbox.rumble(position,0);
+});
+
+
+/*
+ * Analog sticks
+ */
+
+xbox.on('left:move', function(position){
+	var message = JSON.stringify({ serialNumber: xbox.serialNumber, button: 'leftmove', action:position });
+	console.log(message);
+
+	// stop
+	if (position.x == 0 && position.y == 0)
+		gox = goy = 0;
+	else
+	{
+		gox = logslider(position.x);
+		goy = logslider(position.y);
+		//gox = scale(position.x, -32768, 32768, -1, 1);
+		//goy = scale(position.y, -32768, 32768, -1, 1);
+		//gox = position.x / 1000000;
+		//goy = position.y / 1000000;
+	}
+
+});
+
+xbox.on('right:move', function(position){
+    var message = JSON.stringify({ serialNumber: xbox.serialNumber, button: 'rightmove', action:position });
+    console.log(message);
+
+  if(position.x == 0 && position.y == 0)
+		goz = 0;
+	else
+		goz = logslider(position.y, 25, 4000) * -1;
+});
+
+
+xbox.on('leftstick:press', function (key) {
+  var message = JSON.stringify({ serialNumber: xbox.serialNumber, button: 'leftstick', action:'press' });
+  console.log(message);
+});
+
+xbox.on('leftstick:release', function (key) {
+  var message = JSON.stringify({ serialNumber: xbox.serialNumber, button: 'leftstick', action:'release' });
+  console.log(message);
+});
+
+
+xbox.on('rightstick:press', function (key) {
+  var message = JSON.stringify({ serialNumber: xbox.serialNumber, button: 'rightstick', action:'press' });
+  console.log(message);
+});
+
+xbox.on('rightstick:release', function (key) {
+  var message = JSON.stringify({ serialNumber: xbox.serialNumber, button: 'rightstick', action:'release' });
+  console.log(message);
+});
+
+
+/*
+ * Top buttons
+ */
+
+xbox.on('back:press', function (key) {
+  var message = JSON.stringify({ serialNumber: xbox.serialNumber, button: 'back', action:'press' });
+  console.log(message);
+});
+
+xbox.on('back:release', function (key) {
+  var message = JSON.stringify({ serialNumber: xbox.serialNumber, button: 'back', action:'release' });
+  console.log(message);
+});
+
+
+xbox.on('xboxbutton:press', function (key) {
+  var message = JSON.stringify({ serialNumber: xbox.serialNumber, button: 'xboxbutton', action:'press' });
+  console.log(message);
+});
+
+xbox.on('xboxbutton:release', function (key) {
+  var message = JSON.stringify({ serialNumber: xbox.serialNumber, button: 'xboxbutton', action:'release' });
+  console.log(message);
+});
+
+
+xbox.on('start:press', function (key) {
+	gcode("G28");
+  var message = JSON.stringify({ serialNumber: xbox.serialNumber, button: 'start', action:'press' });
+  console.log(message);
+
+
+});
+
+xbox.on('start:release', function (key) {
+  var message = JSON.stringify({ serialNumber: xbox.serialNumber, button: 'start', action:'release' });
+  console.log(message);
+	gcode("G28");
+});
+
+
+/*
+ * D pad
+ */
+
+xbox.on('dup:press', function (key) {
+  var message = JSON.stringify({ serialNumber: xbox.serialNumber, button: 'dup', action:'press' });
+  console.log(message);
+});
+
+xbox.on('dup:release', function(key) {
+  var message = JSON.stringify({ serialNumber: xbox.serialNumber, button: 'dup', action:'release' });
+  console.log(message);
+});
+
+
+xbox.on('ddown:press', function (key) {
+  var message = JSON.stringify({ serialNumber: xbox.serialNumber, button: 'ddown', action:'press' });
+  console.log(message);
+});
+
+xbox.on('ddown:release', function(key) {
+  var message = JSON.stringify({ serialNumber: xbox.serialNumber, button: 'ddown', action:'release' });
+  console.log(message);
+});
+
+
+xbox.on('dleft:press', function (key) {
+  var message = JSON.stringify({ serialNumber: xbox.serialNumber, button: 'dleft', action:'press' });
+  console.log(message);
+});
+
+xbox.on('dleft:release', function(key) {
+  var message = JSON.stringify({ serialNumber: xbox.serialNumber, button: 'dleft', action:'release' });
+  console.log(message);
+});
+
+
+xbox.on('dright:press', function (key) {
+  var message = JSON.stringify({ serialNumber: xbox.serialNumber, button: 'dright', action:'press' });
+  console.log(message);
+});
+
+xbox.on('dright:release', function(key) {
+  var message = JSON.stringify({ serialNumber: xbox.serialNumber, button: 'dright', action:'release' });
+  console.log(message);
+});
+
+
+/*
+ * Shoulder
+ */
+
+xbox.on('rightshoulder:press', function (key) {
+  var message = JSON.stringify({ serialNumber: xbox.serialNumber, button: 'rightshoulder', action:'press' });
+  console.log(message);
+});
+
+xbox.on('rightshoulder:release', function(key) {
+  var message = JSON.stringify({ serialNumber: xbox.serialNumber, button: 'rightshoulder', action:'release' });
+  console.log(message);
+});
+
+
+xbox.on('leftshoulder:press', function (key) {
+  var message = JSON.stringify({ serialNumber: xbox.serialNumber, button: 'leftshoulder', action:'press' });
+  console.log(message);
+});
+
+xbox.on('leftshoulder:release', function(key) {
+  var message = JSON.stringify({ serialNumber: xbox.serialNumber, button: 'leftshoulder', action:'release' });
+  console.log(message);
+});
+
+
+
+
+
+/*
+ * Setup
+ */
+
+xbox.on('connected', function() {
+  console.log('Xbox controller connected');
+  xbox.setLed(LED)
+});
+
+xbox.on('not-found', function() {
+  console.log('Xbox controller could not be found');
+});
+
+
+setInterval(function() {
+	if (gox || goy)
+		gcode("G0 X" + gox + " Y" + goy, true);
+	if (goz)
+		gcode("G0 Z" + goz, true);
+
+}, 10);
