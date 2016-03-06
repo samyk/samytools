@@ -1,9 +1,13 @@
 // control Grbl-based CNC machine (Carvey, X-Carve, etc)
 // from an Xbox controller
-// by samy kamkar
+//
+//  by samy kamkar
+//
+// usage: ./gcode-xbox /dev/cu.GRBL_SERIAL_PORT
 
 // data received: <Idle,MPos:-184.444,-91.687,-7.203,WPos:113.054,98.811,40.650,Pin:000|1|0000>
 
+// list possible serial ports
 var serialPort = require("serialport");
 serialPort.list(function (err, ports) {
 	ports.forEach(function(port) {
@@ -12,20 +16,51 @@ serialPort.list(function (err, ports) {
 });
 
 var args = process.argv.slice(2);
+var SerialPort = require("serialport").SerialPort;
+var openSP = true;
+var sp;
+
+if (args[0])
+	sp = args[0];
+else
+{
+	const fs = require('fs');
+	var files = fs.readdirSync('/dev');
+	var usb = 0;
+	for (var file in files)
+	{
+		if (files[file].indexOf('cu.usb') == 0)
+		{
+			sp = '/dev/' + files[file];
+			console.log('Found potential serial port: ' + sp);
+			usb++;
+		}
+	}
+
+	if (usb != 1)
+	{
+		console.log("usage: gcode-xbox /dev/cu.[grbl serial port]");
+
+		// wait for serial port callbacks to be displayed
+		setInterval(function() {
+			process.exit(1);
+		}, 1000);
+	}
+}
+
+serialPort = new SerialPort(sp, {
+	baudrate: 115200
+});
+
 var XboxController = require('xbox-controller');
 var xbox = new XboxController();
 
-console.log(xbox.serialNumber + ' online');
 
-var SerialPort = require("serialport").SerialPort;
-var openSP = false;
-if (args[0])
-{
-	openSP = true;
-	serialPort = new SerialPort(args[0], {
-  baudrate: 115200
-});
-}
+if (xbox.serialNumber)
+	console.log(xbox.serialNumber + ' Xbox controller online');
+else
+	console.log('No Xbox controller found');
+
 
 function scale(x, x0, x1, y0, y1)
 {
