@@ -1,0 +1,42 @@
+#!/usr/bin/perl
+
+my $eth = lc shift;
+if (!$eth || $eth eq 'gateway' || $eth eq 'gw')
+{
+	foreach (`/usr/sbin/netstat -nr`)
+	{
+		if (/^default\s+(\S+)/)
+		{
+			if ($eth eq 'gw' || $eth eq 'gateway')
+			{
+				print "$1\n";
+				exit;
+			}
+			else
+			{
+				print "gateway: $1\n";
+				last;
+			}
+		}
+	}
+}
+
+my $card;
+foreach (`/sbin/ifconfig -a`)
+{
+	if (/^(\w+):/)
+	{
+		$card = $1;
+	}
+	elsif (/inet (\S+)/)
+	{
+		if ($eth && lc $card eq $eth)
+		{
+			print "$1\n";
+		}
+		elsif (!$eth)
+		{
+			print "$card: $1\n";
+		}
+	}
+}

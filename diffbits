@@ -1,0 +1,102 @@
+#!/usr/bin/perl
+
+use strict;
+use Term::ANSIColor;
+
+my (@a, @b);
+my $byet = 0;
+while (<STDIN>)
+{
+	chomp;
+	s/\s*//;
+	if ($_ eq "")
+	{
+		$byet++;
+		next;
+	}
+
+	# already bin
+	if (/^[01]+$/) { }
+	elsif (/^[a-f\d]+/i) # hex
+	{
+		s/(.)/unpack("B4", pack("H", $1))/eg;
+	}
+	else # ascii
+	{
+		s/(.)/unpack("B8", $1)/eg;
+	}
+	$byet ? push(@b, $_) : push(@a, $_);
+}
+
+my @ad = cmprow(\@a);
+print "\n";
+my @bd = cmprow(\@b, \@ad, $a[0]);
+
+sub cmprow
+{
+	my ($a, $od, $row) = @_;
+	my @a = @{$a};
+	my @od = ($od ? @{$od} : ());
+	my @row = split(//, $row);
+
+	my @diff;
+	my @last = split(//, $a[0]);
+	print "$a[0]\n" if !@row;
+	for (my $i = @row ? 0 : 1; $i < @a; $i++)
+	{
+		my @abit = split(//, $a[$i]);
+		for (my $j = 0; $j < (@abit > @last ? @abit : @last); $j++)
+		{
+			$last[$j] ||= 0;
+			$abit[$j] ||= 0;
+			# second run
+			if (@od)
+			{
+				if ($abit[$j] != $last[$j] && $od[$j] && $row[$j] != $abit[$j])
+				{
+					print color('magenta') . $abit[$j] . color('reset');
+					$diff[$j] = 1;
+				}
+				elsif ($abit[$j] != $last[$j] && !$od[$j] && $row[$j] != $abit[$j])
+				{
+					print color('cyan') . $abit[$j] . color('reset');
+					$diff[$j] = 1;
+				}
+				elsif ($abit[$j] != $last[$j] && !$od[$j])
+				{
+					print color('green') . $abit[$j] . color('reset');
+					$diff[$j] = 1;
+				}
+				elsif ($abit[$j] == $last[$j] && !$od[$j] && $abit[$j] != $row[$j])
+				{
+					print color('red') . $abit[$j] . color('reset');
+					$diff[$j] = 1;
+				}
+				elsif ($abit[$j] == $row[$j] && $od[$j] && $row[$j] != $abit[$j])
+				{
+					print color('yellow') . $abit[$j] . color('reset');
+					$diff[$j] = 1;
+				}
+				else
+				{
+					print $abit[$j];
+				}
+			}
+			else
+			{
+				if ($abit[$j] != $last[$j])
+				{
+					print color('blue') . $abit[$j] . color('reset');
+					$diff[$j] = 1;
+				}
+				else
+				{
+					print $abit[$j];
+				}
+			}
+		}
+		print "\n";
+	}
+
+	return @diff;
+}
