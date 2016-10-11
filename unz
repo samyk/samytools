@@ -1,0 +1,6 @@
+#!/usr/bin/perl
+
+for (@ARGV)
+{
+	system("lzma", "d", $_, "$_.lz");
+}

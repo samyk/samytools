@@ -1,0 +1,19 @@
+#!/usr/bin/perl
+
+use strict;
+
+use Time::HiRes qw/gettimeofday usleep/;
+
+my $lg;
+my ($s, $ms) = gettimeofday;
+$SIG{INT} = sub { print "\r\n$lg\n"; exit; };
+while (1)
+{
+	my ($ns, $nms) = gettimeofday;
+	print "\r";
+	my $g = eval("$ns.$nms - $s.$ms");
+	$g =~ s/(\....).*/$1/;
+	$lg = $g;
+	print $g;
+	usleep(10);
+}

@@ -1,0 +1,19 @@
+#!/usr/bin/perl
+
+die "usage: $0 <disk number> [image]\n" if !@ARGV || $ARGV[0] !~ /^[2-9]$/;
+my ($disk, $img) = @ARGV;
+$img ||= "/users/samy/Installers/2013-12-20-wheezy-raspbian.img";
+
+# installing on os x (10.8)
+
+# first, make sure it's not in the MBP SD port but in monitor's SD port (not sure why)
+
+# unmount via diskutil
+#sudo diskutil unmount /dev/disk3s1
+system("unm", $disk);
+
+# dd, changing disk to rdisk
+system("sudo", "dd", "if=$img", "of=/dev/rdisk$disk", "bs=1m");
+
+# eject
+system("sudo", "diskutil", "eject", "/dev/rdisk$disk");

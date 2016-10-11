@@ -1,0 +1,83 @@
+#!/usr/bin/perl
+
+# Sniffs a serial Connection. Prints all unprintable characters!
+# Only tested under Mac OS X 10.8. (should work with earlier versions)
+# Uses dtruss, which comes with Mac OS.
+#
+# Usage:
+# $ ./serialsniffer.rb <serial device>
+#
+# Example:
+# $ ./serialsniffer.rb /dev/tty.usbserial-A6008j9P
+
+use strict;
+
+die "usage: $0 </dev/tty...>\n" unless -e $ARGV[0];
+
+
+my ($l) = grep { /$ARGV[0]/ } `/usr/sbin/lsof -n`;
+my ($pid, $fd) = ($l =~ /^\s*\S+\s+(\d+)\s+\S+\s+(\d+)u/);
+
+die "no fds using $ARGV[0] (pid $pid)\n" unless $fd;
+
+my $cmd = "dtruss -p $pid 2>&1";
+open(F, "$cmd|") || die "Couldn't run $cmd: $!";
+print STDERR "$cmd\n";
+
+my @r;
+my $h = unpack("H*", chr($fd));
+$h =~ s/^0*/0x/g;
+
+while (<F>)
+{
+	if (/(?:(r)ead|(w)rite)\($h, "(.*?)"/)
+	{
+		my ($rw, $o) = ($1 . $2, $3);
+		$o =~ s/\\(\d\d\d)/chr(oct($1))/eg;
+		$o =~ s/\\0$/\0/g;
+		if ($rw eq "r")
+		{
+			push @r, map { ord } split //, $o;
+		}
+
+		$o =~ s/(.)/unpack("H2", $1) . " "/eg;
+		print "$rw: $o\n";
+
+		#@r = rr(@r) if @r;
+	}
+}
+
+sub rr
+{
+	my @r = @_;
+	return @r if !@r;
+
+	my $r = shift @r;
+	if ($r != 0xFE)
+	{
+		print "Bad start: $r\n";
+		return @r;
+	}
+
+	if (@r < $r[0] + 7)
+	{
+		print "not enough ($r[0] + 7)\n";
+		# wait for more data to come in
+		unshift @r, $r;
+		return @r;
+	}
+
+	my ($len, $seq, $sid, $cid, $mid) = splice(@r, 0, 5);
+	my @payload = splice(@r, 0, $len);
+	my @crc = splice(@r, 0, 2);
+
+	print "s/cid=$sid $cid MID=$mid\n";
+
+	while (@r)
+	{
+		print "rerunning! " . @r . "\n";
+		@r = rr(@r);
+	}
+
+	return @r;
+}

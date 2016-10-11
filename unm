@@ -1,0 +1,81 @@
+#!/usr/bin/perl
+#
+# -samy kamkar
+# 04/21/2014
+
+my @CMD = qw/sudo diskutil unmount/;
+my $DF = "/bin/df";
+use strict;
+
+my @vols;
+my @df = df();
+my $df = join "", @df;
+unless (@ARGV)
+{
+	die "usage: $0 <-a (all external)> OR <volume (to unmount)> [volume ...]\n\n$df";
+}
+=cut
+
+my @devs;
+if ($ARGV[0] eq "-a")
+{
+	my @df = `$DF`;
+	foreach my $dev
+}
+else
+{
+	foreach my $dev (@ARGV)
+	{
+		if (m|^/dev/(disk\d+s\d+)\s.*\s/
+=cut
+
+foreach my $vol (@ARGV)
+{
+	if ($vol =~ /^\d+s\d+$/)
+	{
+		$vol = "/dev/disk$vol";
+	}
+	elsif ($vol =~ /^disk\d+s\d+$/)
+	{
+		$vol = "/dev/$vol";
+	}
+	elsif ($vol =~ /^\d+$/)
+	{
+		foreach (@df)
+		{
+			if (m|^(/dev/disk${vol}s\d+)\s|)
+			{
+				push @vols, $1;
+			}
+		}
+		next;
+	}
+	elsif ($vol =~ m|^/dev/disk\d+s\d+\s|)
+	{ }
+	else
+	{
+		die "Don't understand volume `$vol`\n";
+	}
+
+	push @vols, $vol;
+}
+
+foreach my $vol (@vols)
+{
+	if ($vol =~ /disk[01]s/)
+	{
+		print STDERR "!!! Won't unmount $vol!\n";
+		next;
+	}
+
+	print "Unmounting $vol...\n";
+
+	system(@CMD, $vol);
+}
+
+print "\n", df();
+
+sub df
+{
+	return grep { !/^map -hosts|^devfs/ } `$DF -h`;
+}

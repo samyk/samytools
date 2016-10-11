@@ -1,0 +1,43 @@
+#!/usr/bin/perl
+#
+# by samy kamkar
+# http://samy.pl
+# samy@samy.pl
+
+use strict;
+$|++;
+
+die "usage: $0 <file>" unless @ARGV;
+open F, "<$ARGV[0]";
+my $d = join("", <F>);
+close(F);
+
+# hexify
+if ($d =~ /^[\sa-f0-9]+$/is)
+{
+	$d =~ s/\s//g;
+}
+else
+{
+	$d = unpack("H*", $d);
+}
+
+my $r = rand();
+my $i = 0;
+while (length $d)
+{
+	print "\r" . length($d);
+	open (F, ">/tmp/.rf.$r");
+	print F pack("H*", $d);
+	close(F);
+
+	my $out = `protoc --decode_raw < /tmp/.rf.$r 2>>/dev/null`;
+	if ($out)
+	{
+		print "\r-" . ($i * 2) . ": $d\n$out\n";
+		exit;
+	}
+	$i++;
+	$d =~ s/^..//;
+}
+print "\r";

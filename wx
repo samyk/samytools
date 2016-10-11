@@ -1,0 +1,18 @@
+#!/usr/bin/perl
+
+use strict;
+use IPC::System::Simple qw(capture);
+
+die "usage: $0 <url> [url ...]\nwget's and unpacks files\n" unless @ARGV;
+
+foreach my $file (@ARGV)
+{
+	my $capture = capture('wget', $file);	
+	if ($capture =~ /'(.*?)' saved/)
+	{
+		my $f = $1;
+		system("tar", "-zxvf", $f);
+		$f =~ s/\.tar\.gz$|\.tgz$|\.tar\.bz2?$//;
+		print "cd $f\n";
+	}
+}

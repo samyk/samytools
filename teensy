@@ -1,0 +1,42 @@
+#!/usr/bin/perl
+
+use strict;
+
+die "usage: $0 <.hex | .ino/c> [3/3.1/3.2/lc (teensy model, 3.2)]\n" unless @ARGV;
+my %versions = (
+  '3'   => 'mk20dx128',
+  '30'  => 'mk20dx128',
+  '3.0' => 'mk20dx128',
+
+  '31'  => 'mk20dx256',
+  '32'  => 'mk20dx256',
+  '3.1' => 'mk20dx256',
+  '3.2' => 'mk20dx256',
+
+  'lc'  => 'mkl26z64',
+  
+  '2'   => 'atmega32u4',
+  '20'  => 'atmega32u4',
+  '2.0' => 'atmega32u4',
+
+  '++2'   => 'at90usb1286',
+  '++20'  => 'at90usb1286',
+  '++2.0' => 'at90usb1286',
+  '2++'   => 'at90usb1286',
+  '20++'  => 'at90usb1286',
+  '2.0++' => 'at90usb1286',
+  );
+
+my $ver = "3.2";
+if (@ARGV == 2)
+{
+  $ver = lc(pop);
+}
+$ver = $versions{$ver} || die "Can't find version $ver\n";
+
+sys("teensy_loader_cli", "--mcu=$ver", "-w", shift);
+sub sys
+{
+  print "Running: @_\n";
+  system(@_);
+}

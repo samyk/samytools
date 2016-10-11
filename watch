@@ -1,0 +1,16 @@
+#!/usr/bin/perl
+
+use strict;
+
+my $time = 1;
+if ($ARGV[0] =~ /^\d+(?:\.\d+)?$/)
+{
+	$time = shift;
+}
+
+while (1)
+{
+	system(@ARGV);
+	select(undef, undef, undef, $time);
+	#sleep($time);
+}

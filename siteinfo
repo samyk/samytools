@@ -1,0 +1,9 @@
+#!/usr/bin/perl
+
+use TZ;
+use strict;
+use Data::Dumper;
+
+die "usage: $0 <url>\n" unless @ARGV;
+
+print Dumper(@{new TZ->page_software(shift)}[0]);

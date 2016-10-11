@@ -1,0 +1,52 @@
+#!/usr/bin/perl
+
+use strict;
+
+die "usage: $0 [-d | -x] <file1 | data1> <file2 | data2>\n" unless @ARGV;
+
+my $opt;
+if ($ARGV[0] eq "-d" || $ARGV[0] eq "-x")
+{
+	$opt = shift @ARGV;
+}
+
+my ($f1, $f2) = @ARGV;
+
+my ($in, $xor);
+if (-e $f1 && -e $f2)
+{
+	$in = cat($f1);
+	$xor = cat($f2);
+}
+else
+{
+	$in = $f1;
+	$xor = $f2;
+}
+
+my $i = 0;
+while (length($in))
+{
+	my $t = substr($in, 0, 1, "");
+	my $x = substr($xor, 0, 1, "");
+	if ($opt eq "-d")
+	{
+		print "$i: " . (ord($t) ^ ord($x)) . " (" . chr(ord($t) ^ ord($x)) . ") = " . ord($t) . " ^ " . ord($x) . "\n";
+		$i++;
+	}
+	elsif ($opt eq "-x")
+	{
+		print unpack("H", chr(ord(pack("H", $t)) ^ ord(pack("H", $x))));
+	}
+	else
+	{
+		print chr(ord($t) ^ ord($x));
+	}
+}
+print "\n";
+
+sub cat
+{
+	open F, "<$_[0]";
+	return join "", <F>;
+}

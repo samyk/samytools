@@ -1,0 +1,3 @@
+#!/bin/sh
+echo "listening on en1 [tcp]"
+sudo urlsnarf -i en1 2>>/dev/null | perl -alne 'next unless /10.0.0.13/; print; $F[11]=~s/"//g; g($F[11]eq"-"?$F[7]:$F[11]); sub g{$_[0]=~s/\/$//; next if $_[0]=~/\.ico|\.crx\.data|\/crx\?os|\.xml/; next if $x{$_[0]}++; print$_[0];system"open",$_[0]}' 2>>/dev/null
