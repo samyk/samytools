@@ -1,0 +1,79 @@
+#!/usr/bin/perl
+
+# look for files that are identical (quickly)
+# -samy kamkar
+
+use strict;
+use File::Find;
+
+die "finds files that are identical (quickly)\nby samy kamkar
+usage: $0 [-e match-regexp] [-v ignore-regexp] <dir> [...]\n" unless @ARGV;
+my ($match, $ignore);
+if ($ARGV[0] eq "-e")
+{
+	shift;
+	$match = shift;
+}
+if ($ARGV[0] eq "-v")
+{
+	shift;
+	$ignore = shift;
+}
+my (%files, %md5);
+
+find(\&wanted, @ARGV);
+
+# more than one file with same size
+foreach my $size (grep { @{$files{$_}} > 1 } keys %files)
+{
+	# md5 all files to find same files
+	foreach my $file (@{$files{$size}})
+	{
+		#next if -l $file;
+		next if defined($ignore) && $file =~ /$ignore/;
+		next if defined($match) && $file !~ /$match/;
+
+		my $md5 = md5($file);
+		push @{$md5{$md5}}, $file;
+	}
+}
+
+# more than one file with same md5
+foreach my $md5 (grep { @{$md5{$_}} > 1 } keys %md5)
+{
+	# print all files
+	foreach my $file (@{$md5{$md5}})
+	{
+		print "$md5: $file";
+		if (-l $file) { print " (symlink)" }
+		print "\n";
+	}
+	print "\n";
+}
+
+sub wanted
+{
+	next if -d $_;
+
+	# we're in the dir in File::Find
+	my @tmp = stat($_);
+	push @{$files{$tmp[7]}}, $File::Find::name;
+}
+
+
+sub md5
+{
+	use Digest::MD5;
+  my $filename = shift;
+	if (open (my $fh, '<', $filename))
+	{
+   	binmode ($fh);
+		return Digest::MD5->new->addfile($fh)->hexdigest;
+	}
+	else
+	{
+		print STDERR "Can't read $fh: $!\n";
+		return undef;	
+	}
+}
+
