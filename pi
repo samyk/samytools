@@ -1,0 +1,72 @@
+#!/usr/bin/perl
+
+# discover and ssh to any raspberry pi on your network
+# -samy
+
+# alfa 0:c0:ca:
+my $opts = ($0 =~ /pix$/i ? "-X" : "");
+my $bbb = ($0 =~ /bb/i);
+
+my $MAC  = '(b8:27:eb|80:1f:0?2|74:da:38|00?:c0:ca)';
+my @devs = @ARGV ? @ARGV : qw/bridge0 en0 en1 bridge100 vnic0 vnic1/;
+
+arp();
+
+=cut
+# bbb?
+if ($bbb && grep { /192\.168\.7\.1\s/ } `ifconfig` })
+{
+	$ip = "192.168.7";
+	print "Scanning $ip.0/24\n";
+	`nmap -sn $ip.0/24`;
+	my $try = 
+}
+=cut
+
+foreach my $dev (@devs)
+{
+	my ($ip) = `ifconfig $dev` =~ /inet\s+(\S+)\.\d+\s/;
+
+	if ($ip)
+	{	
+		print "Scanning $dev $ip.0/24\n";
+		`nmap -sn $ip.0/24`;
+		arp();
+	}
+
+}
+
+sub arp
+{
+	my ($match) = `arp -na` =~ /\((.*?)\)\s+at\s+$MAC/;
+	if ($match)
+	{
+		my $ssh = "ssh $opts pi\@$match";
+		print "\n$ssh\n\n";
+
+		exec($ssh);
+		exit;
+	}
+}
+__DATA__
+tigerblood:/Users/samy/code$ ifconfig en1
+en1: flags=8863<UP,BROADCAST,SMART,RUNNING,SIMPLEX,MULTICAST> mtu 1500
+	ether e0:f8:47:00:98:82 
+	inet6 fe80::e2f8:47ff:fe00:9882%en1 prefixlen 64 scopeid 0x5 
+	inet 10.0.1.32 netmask 0xffffff00 broadcast 10.0.1.255
+	media: autoselect
+	status: active
+tigerblood:/Users/samy/code$ ifconfig bridge0
+bridge0: flags=8863<UP,BROADCAST,SMART,RUNNING,SIMPLEX,MULTICAST> mtu 1500
+	ether ac:de:48:c2:90:b4 
+	inet 192.168.2.1 netmask 0xffffff00 broadcast 192.168.2.255
+	Configuration:
+		priority 0 hellotime 0 fwddelay 0 maxage 0
+		ipfilter disabled flags 0x2
+	member: en0 flags=3<LEARNING,DISCOVER>
+	         port 4 priority 0 path cost 0
+	Address cache (max cache: 100, timeout: 1200):
+		b8:27:eb:85:69:a2 en0 1179 flags=0<>
+
+
+? (192.168.2.8) at b8:27:eb:85:69:a2 on bridge0 ifscope [bridge]
