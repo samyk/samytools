@@ -1,11 +1,12 @@
 #!/usr/bin/perl
 
+# compare two files, line by line, with aligned data, looking for differences in bits
 use strict;
 use Term::ANSIColor;
 
 my (@a, @b);
 my $byet = 0;
-while (<STDIN>)
+while (<>)
 {
 	chomp;
 	s/\s*//;
@@ -70,12 +71,10 @@ sub cmprow
 				elsif ($abit[$j] == $last[$j] && !$od[$j] && $abit[$j] != $row[$j])
 				{
 					print color('red') . $abit[$j] . color('reset');
-					$diff[$j] = 1;
 				}
-				elsif ($abit[$j] == $row[$j] && $od[$j] && $row[$j] != $abit[$j])
+				elsif ($abit[$j] == $last[$j] && $od[$j] && $row[$j] != $abit[$j])
 				{
 					print color('yellow') . $abit[$j] . color('reset');
-					$diff[$j] = 1;
 				}
 				else
 				{
@@ -97,6 +96,41 @@ sub cmprow
 		}
 		print "\n";
 	}
+
+=cut
+	for (my $i = 0; $i < @row; $i++)
+	{
+		print "$last[$i]";
+	}
+	print "\n";
+	for (my $i = 0; $i < @row; $i++)
+	{
+		print "$row[$i]";
+	}
+	print "\n";
+	for (my $i = 0; $i < @row; $i++)
+	{
+		print $diff[$i] ? 1 : 0;
+	}
+	print "\n";
+	for (my $i = 0; $i < @row; $i++)
+	{
+		print $od[$i] ? 1 : 0;
+	}
+	print "\n";
+=cut
+	for (my $i = 0; $i < @row; $i++)
+	{
+		if (!$od[$i] && !$diff[$i] && $last[$i] != $row[$i])
+		{
+			print color('red') . "X" . color('reset');
+		}
+		else
+		{
+			print '_';
+		}
+	}
+	print "\n";
 
 	return @diff;
 }
