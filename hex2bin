@@ -1,0 +1,46 @@
+#!/usr/bin/perl
+
+# convert intel hex file to binary
+# useful when wanting to drop a .hex into a disassembler
+# -samy kamkar
+
+use strict;
+my $H = "[A-Fa-f0-9]";
+
+while (<>)
+{
+	chomp;
+	s/\r$//;
+	if (/^:(..)(....)(..)(.*)/)
+	{
+		my ($count, $addy, $record, $rest) = ($1, $2, $3, $4);
+		$count  = ord(pack("H2", $count));
+		$addy   = unpack("S", (pack("H4", $addy)));
+		$record = ord(pack("H2", $record));
+
+		my $tc = $count*2;
+		if ($rest =~ /^(.{$tc})(..)$/)
+		{
+			my ($data, $ck) = ($1, $2);
+			print STDERR "cnt=$count addy=$addy rec=$record data=$data ck=$ck\n";
+
+			# data
+			if ($record == 0)
+			{
+				print pack("H*", $data);
+			}
+			else
+			{
+				print STDERR "Record $record: " . pack("H*", $data) . "\n";
+			}
+		}
+		else
+		{
+			die "Unknown1: $_\n";
+		}
+	}
+	else
+	{
+		die "Unknown2: $_\n";
+	}
+}
