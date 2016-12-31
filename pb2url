@@ -1,0 +1,42 @@
+#!/usr/bin/perl
+#
+# when dropbox screenshot goes into paste buffer,
+# rewrite url to samy.pl and forward directly to raw image
+# -samy kamkar
+
+=cut
+my samy.pl/s/.htaccess:
+RewriteEngine on
+RewriteRule ^(.*)/(.*)$ https://www.dropbox.com/s/$1/$2?raw=1 [L,NC]
+=cut
+
+if (my $p = fork)
+{
+  die "Running in bg! (pid $p)";
+}
+close(STDERR);
+close(STDIN);
+close(STDOUT);
+
+my $SLEEP = 0.3;
+my $URL = "https://samy.pl/s/";
+
+use strict;
+
+while (1)
+{
+  my $url = `pbpaste`;
+  if ($url =~ m|^https://www.dropbox.com/s/(.*?)/(.*?)\?dl=0$|)
+  {
+    my ($rand, $file) = ($1, $2);
+    $file =~ s/Screenshot.*(\..*)/ss$1/;
+    my $nurl = $URL . "$rand/$file";
+    system("echo '$nurl' | pbcopy");
+#    print STDERR "Copied $nurl\n";
+  }
+
+  #https://www.dropbox.com/s/gegnifzzcv1wepe/ds1.png?dl=0
+
+  # sleep
+  select(undef, undef, undef, $SLEEP);
+}
