@@ -1,0 +1,40 @@
+#!/usr/bin/perl
+
+# run a command every X seconds when a file/dir changes
+# -samy kamkar
+#
+# eg: onchange project/ rsync -av project/ remote.com:proj
+
+my ($secs, $file, @command) = usage();
+
+my $last;
+while (1)
+{
+	($mtime) = (stat($file))[9];
+	if ($last != $mtime)
+	{
+		print "Running...";
+		system(@command);
+		$last = $mtime;
+	}
+	select(undef, undef, undef, $secs);
+}
+
+sub usage
+{
+	$|++;
+	my $secs = 0.1;
+	if ($ARGV[0] =~ /^\d+$/)
+	{
+		$secs = shift(@ARGV);
+	}
+	my $file = shift(@ARGV);
+	my @command = @ARGV;
+
+	if (!-e $file || !@command)
+	{
+		die "usage: $0 [secs] <file/dir> <command to run on change>\n";
+	}
+
+	return ($secs, $file, @command);
+}
