@@ -8,6 +8,8 @@
 # -e = exclude regexp
 # -v = grep out AFTER grepping
 
+# if there is no -i, actually add -i if no matches
+
 my $grep = '/opt/local/bin/grep';
 use strict;
 die "usage: $0 [files] [-o] [-n <file match>] [-i=file] [-e=file] [-options] <match> [-v !match]\n" unless @ARGV;
@@ -19,6 +21,8 @@ if (-t STDIN)
 {
 	$stdin = "r";
 }
+
+my $stdout = -t STDOUT;
 
 for (my $i = 0; $i < @ARGV; $i++)
 {
@@ -55,7 +59,10 @@ for (my $i = 0; $i < @ARGV; $i++)
 splice(@ARGV, 0, 0, $grep, ($ARGV[0] =~ /^-/ || @ARGV == 1) && -t STDIN ? <*> : ());
 #splice(@ARGV, -1, 0, "--exclude-dir=.git", "--exclude-dir=.svn", "--color=always", "-srne");
 #splice(@ARGV, -1, 0, "--exclude-dir=.git", "--exclude-dir=.svn", "--color=always", "-TPsne");
-splice(@ARGV, -1, 0, "--exclude-dir=.git", "--exclude-dir=.svn", "--color=always", "-TPs${stdin}ne");
+
+splice(@ARGV, -1, 0, "--exclude-dir=.git", "--exclude-dir=.svn", "-TPs${stdin}");
+splice(@ARGV, -1, 0, "--color=always", "-n") if $stdout;
+splice(@ARGV, -1, 0, "-e");
 
 print STDERR join(" ", @ARGV) . "\n" if $out;
 if (length($no))
