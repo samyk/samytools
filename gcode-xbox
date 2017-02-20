@@ -1,11 +1,11 @@
-// control Grbl-based CNC machine (Carvey, X-Carve, etc)
-// from an Xbox controller
+#!/usr/local/bin/node
+// control Grbl-based CNC machine (Carvey, X-Carve, etc) from an Xbox controller
 //
 //  by samy kamkar
 //
-// usage: ./gcode-xbox /dev/cu.GRBL_SERIAL_PORT
+// todo: speed of bit, feedrate speed, fast movements dpad, controlled motion analog stick, curves
+// usage: ./gcode-xbox [/dev/cu.GRBL_SERIAL_PORT]
 
-// data received: <Idle,MPos:-184.444,-91.687,-7.203,WPos:113.054,98.811,40.650,Pin:000|1|0000>
 
 // list possible serial ports
 var serialPort = require("serialport");
@@ -19,6 +19,7 @@ var args = process.argv.slice(2);
 var SerialPort = require("serialport").SerialPort;
 var openSP = true;
 var sp;
+var dint; // d-pad interval
 
 if (args[0])
 	sp = args[0];
@@ -95,8 +96,8 @@ function logslider(position, min, max) {
 
 
 
-var gox, goy, goz, running;
-gox = goy = goz = running = 0;
+var gox, goy, goz, dox, doy, running;
+gox = goy = goz = dox = doy = running = 0;
 var xon = false;
 var cruisecontrol = false;
 
@@ -113,7 +114,8 @@ var gcode = function(code, unimportant)
 	if (openSP)
 		serialPort.write(code + "\n", function(err, results) {
 			running = 0;
-			console.log('err ' + err);
+			if (typeof err !== 'undefined')
+				console.log('err ' + err);
 			console.log('results ' + results);
 		});
 };
@@ -226,13 +228,17 @@ xbox.on('righttrigger', function(position){
  * Analog sticks
  */
 
+// this happens after dpad so use dpad coords if set to 0
 xbox.on('left:move', function(position){
 	var message = JSON.stringify({ serialNumber: xbox.serialNumber, button: 'leftmove', action:position });
 	console.log(message);
 
 	// stop
 	if (position.x == 0 && position.y == 0)
-		gox = goy = 0;
+	{
+		gox = dox;
+		goy = doy;
+	}
 	else
 	{
 		gox = logslider(position.x);
@@ -324,44 +330,60 @@ xbox.on('start:release', function (key) {
  */
 
 xbox.on('dup:press', function (key) {
+	doy = goy = 0.01;
+	//dint = setInterval(function() { goy = 0.01; }, 300);
   var message = JSON.stringify({ serialNumber: xbox.serialNumber, button: 'dup', action:'press' });
   console.log(message);
 });
 
 xbox.on('dup:release', function(key) {
+  doy = goy = 0;
+	//clearInterval(dint);
   var message = JSON.stringify({ serialNumber: xbox.serialNumber, button: 'dup', action:'release' });
   console.log(message);
 });
 
 
 xbox.on('ddown:press', function (key) {
+	doy = goy = -0.01;
+	//dint = setInterval(function() { goy = -0.01; }, 300);
   var message = JSON.stringify({ serialNumber: xbox.serialNumber, button: 'ddown', action:'press' });
   console.log(message);
 });
 
 xbox.on('ddown:release', function(key) {
+  doy = goy = 0;
+	//clearInterval(dint);
   var message = JSON.stringify({ serialNumber: xbox.serialNumber, button: 'ddown', action:'release' });
   console.log(message);
 });
 
 
 xbox.on('dleft:press', function (key) {
+	//dint = setInterval(function() { gox = -0.01; }, 300);
+	dox = gox = -0.01;
   var message = JSON.stringify({ serialNumber: xbox.serialNumber, button: 'dleft', action:'press' });
   console.log(message);
 });
 
 xbox.on('dleft:release', function(key) {
+	dox = gox = 0;
+	//clearInterval(dint);
   var message = JSON.stringify({ serialNumber: xbox.serialNumber, button: 'dleft', action:'release' });
   console.log(message);
 });
 
 
 xbox.on('dright:press', function (key) {
+	//dint = setInterval(function() { gox = 0.01; }, 300);
+	dox = gox = 0.01;
   var message = JSON.stringify({ serialNumber: xbox.serialNumber, button: 'dright', action:'press' });
   console.log(message);
 });
 
 xbox.on('dright:release', function(key) {
+	dox = gox = 0;
+	//clearInterval(dint);
   var message = JSON.stringify({ serialNumber: xbox.serialNumber, button: 'dright', action:'release' });
   console.log(message);
 });
@@ -417,3 +439,7 @@ setInterval(function() {
 		gcode("G0 Z" + goz, true);
 
 }, 10);
+
+// data received: <Idle,MPos:-184.444,-91.687,-7.203,WPos:113.054,98.811,40.650,Pin:000|1|0000>
+
+/* vim: set syntax=javascript filetype=javascript */
