@@ -1,5 +1,7 @@
 #!/usr/bin/perl
 #
+# raw: rtl_fm -f 314M -M raw -s 2000000 out.raw
+#
 # make listening/saving data from rtl-sdr or hackrf faster
 # example: rtl 315M
 # example: rtl 315M test.wav
@@ -11,23 +13,31 @@ use Getopt::Std;
 
 # hackrf or rtl?
 my $fmcmd = system("rtl_test >>/dev/null 2>>/dev/null") ? "hackrf_fm" : "rtl_fm";
+#my $fmcmd = "rtl_fm";
 
 my %o;
 getopts('bls:m:', \%o);
 
-die "usage: [-s squelch] [-m modulation] [-b (baudline)] [-l (lowpass)] <frequency (hz/mhz)> [file.wav]\n" unless @ARGV == 1 || @ARGV == 2;
+die "usage: [-s samplerate] [-l squelch] [-m modulation] [-b (baudline)] [-L (lowpass)] <frequency (hz/mhz)> [file.wav]\n" unless @ARGV == 1 || @ARGV == 2;
 
 $o{m} ||= 'am';
-$o{s} &&= "-l $o{s}";
-$o{l} &&= "lowpass -2 5000";
+$o{l} &&= "-l $o{l}";
+$o{L} &&= "lowpass -2 5000";
 
 my ($freq, $file) = @ARGV;
+if ($freq =~ /wav$/ && $freq =~ /(\d+)(M|K|G)/)
+{
+	($freq, $file) = ($1, $freq);
+	print STDERR "EXTRACTED FREQUENCY `$freq` FROM FILENAME `$file`\n\n";
+}
 $freq *= 1_000_000 if $freq < 1000;
 
-my $sample = 2_000_000;
-my $sox_opts = "-t raw -r $sample -e signed-integer -b 16 -c 1 -V1 - $file $o{l}";
+my $sample = $o{s} || 2_400_000;
+$sample =~ s/M/000000/;
+$sample =~ s/K/000/;
+my $sox_opts = "-t raw -r $sample -e signed-integer -b 16 -c 1 -V1 - $file $o{L}";
 my $rtl_sdr_opts = "-f $freq -s $sample -";
-my $rtl_fm = "$fmcmd -M $o{m} $o{s} $rtl_sdr_opts";
+my $rtl_fm = "$fmcmd -M $o{m} $o{l} $rtl_sdr_opts";
 if ($fmcmd =~ /^hackrf_fm/i)
 {
 	$rtl_fm =~ s/-M\s+am/-M/;
