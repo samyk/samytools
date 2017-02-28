@@ -1,0 +1,46 @@
+#usage "Cycle through visible board layers<p>"
+       "<author>Author: Samy Kamkar [ulp@samy.pl]</author>"
+
+// Version 1.0.0 -- 2012-02-27 initial version (only 2-layer support)
+
+// layers (layer, document, place, origin, name, keepout, restrict)
+string top = "t td tn tor tp tk tr ";
+string bot = "b bd bn bor bp bk br ";
+string notop = "-t -td -tn -tor -tp -tk -tr ";
+string nobot = "-b -bd -bn -bor -bp -bk -br ";
+
+string runcmd;
+int lVisible[];
+
+void cmd(string s)
+{
+  runcmd += s + ";";
+}
+
+// main
+if (!board)
+{
+  dlgMessageBox("This tool only cycles through board view layers.");
+  exit("");
+}
+
+board(B)
+{
+  // determine visible layers
+  B.layers(L)
+    lVisible[L.number] = L.visible;
+
+  // if top and bottom are visible, go to top
+  if (lVisible[1] && lVisible[16])
+    cmd("DISPLAY " + top + nobot);
+
+  // only top is visible, go to bottom
+  else if (lVisible[1])
+    cmd("DISPLAY " + notop + bot);
+
+  // only bottom or top&bottom not visible, show all
+  else
+    cmd("DISPLAY " + top + bot);
+}
+
+exit(runcmd);
