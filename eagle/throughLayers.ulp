@@ -1,7 +1,7 @@
 #usage "Cycle through visible board layers<p>"
        "<author>Author: Samy Kamkar [ulp@samy.pl]</author>"
 
-// Version 1.0.0 -- 2012-02-27 initial version (only 2-layer support)
+// Version 1.0.0 -- 2017-02-27 initial version (only 2-layer support)
 
 // layers (layer, document, place, origin, name, keepout, restrict)
 string top = "t td tn tor tp tk tr ";
