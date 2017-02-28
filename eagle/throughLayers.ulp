@@ -1,5 +1,19 @@
-#usage "Cycle through visible board layers<p>"
-       "<author>Author: Samy Kamkar [ulp@samy.pl]</author>"
+#usage "<b>Cycle through visible board layers quickly</b> <hr>"
+       "Useful to quickly enable/disable/cycle through a set of related layers. No parameters necessary.<p>"
+
+       "For example, <b>disabling</b> <font color='red'>Top</font>, tDocu, tPlace, tOrigins, tNames, tKeepout, and tRestrict, while <b>enabling</b> the related <font color='blue'>Bottom</font> layers.<p>"
+
+       "Tip: Assign a hotkey with: <br>"
+       "<tt>ASSIGN Ctrl+L 'run throughLayers.ulp';</tt>"
+       "<p>"
+       "<author><b>Author:</b> <a href='https://twitter.com/samykamkar'>Samy Kamkar</a> || <a href='https://samy.pl'>https://samy.pl</a> || <a href='mailto:ulp@samy.pl'>ulp@samy.pl</a></author> <br>"
+       "<b>Date:</b> 2017/02/27 <p>"
+
+       "<img width=480 src='https://raw.githubusercontent.com/samyk/samytools/master/eagle/img/throughLayers1.png'> <br>"
+       "<img width=480 src='https://raw.githubusercontent.com/samyk/samytools/master/eagle/img/throughLayers2.png'> <br>"
+       "<img width=480 src='https://raw.githubusercontent.com/samyk/samytools/master/eagle/img/throughLayers3.png'> <p>"
+
+       "<img src='https://raw.githubusercontent.com/samyk/samytools/master/eagle/img/throughlayers-ulp.gif'> <br>"
 
 // Version 1.0.0 -- 2017-02-27 initial version (only 2-layer support)
 
