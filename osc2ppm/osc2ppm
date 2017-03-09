@@ -1,0 +1,158 @@
+#!/usr/bin/perl
+
+# last updated - 7/7/2015
+# works with Lemur over OSC (iPhone, iPad, Android)
+# and orangerx_ppmout on Teensy 3.1
+# and PPM transmitter (eg, OrangeRX TX and Spektrum can RX)
+
+my $BAUDRATE = 115200; # 9600
+#my $MIN = 1100;
+my $MIN = 1000;
+my $MAX = 2000;
+
+my $MIN_RING = $MIN+100;
+my $MAX_RING = $MAX-100;
+
+die "usage: $0 <port (7777)>\n" unless @ARGV;
+my $oscport = shift;
+
+my %signal = (
+	'/RingArea/y'  => 1,
+	'/RingArea2/x' => 2,
+	'/RingArea2/y' => 3,
+	'/RingArea/x'  => 4,
+	'/MultiBall/y'  => 1,
+	'/MultiBall2/x' => 2,
+	'/MultiBall2/y' => 3,
+	'/MultiBall/x'  => 4,
+	'/Fader/x'      => 5,
+	'/Fader2/x'     => 6,
+	'/Fader3/x'     => 7,
+	'/Fader4/x'     => 8,
+	'/Gear/x'     => 5,
+	'/Aux1/x'     => 6,
+	'/Aux2/x'     => 7,
+	'/Aux3/x'     => 8,
+);
+my %trims;
+
+use strict;
+use Data::Dumper qw(Dumper);
+use Net::OpenSoundControl::Server;
+use Device::SerialPort;
+$|++;
+
+my $DEV = "/dev/tty.usbmodem797781";
+my $port = Device::SerialPort->new($DEV) || die "Can't access dev $DEV";
+$port->baudrate(115200);
+$port->databits(8);
+$port->parity("none");
+$port->stopbits(1);
+
+if(0){
+# start
+my $time = time;
+while (time() - $time < 3)
+{
+$port->write(chr(1));
+$port->write(pack("f", 2000));
+$port->write(chr(4));
+$port->write(pack("f", 1000));
+$port->write(chr(3));
+$port->write(pack("f", 1000));
+$port->write(chr(2));
+$port->write(pack("f", 1000));
+}
+}
+
+sub dumpmsg
+{
+	my ($sender, $message) = @_;
+
+	if ($message->[1] == 0 && ref($message->[2]))
+	{
+		for (my $i = 2; $i < @{$message}; $i++)
+		{
+			parse($message->[$i]);
+		}
+	}
+	else
+	{
+		print "Weird: " . Dumper($message) ."\n";
+		#die Dumper($message);
+		#parse($message);
+	}
+
+#	motor($message) if ($message->[0] eq '/accxyz');
+}
+
+sub parse
+{
+	my ($name, undef, $val) = @{$_[0]};
+	$name =~ s|/Container||;
+
+	# trim setting?
+	if ($name =~ m|/Trim(\d)/x$| && defined($val))
+	{
+		$trims{$1} = $val;
+	}
+
+	elsif (defined $signal{$name} && defined $val)
+	{
+		my $trim;
+		if ($name =~ /RingArea/)
+		{
+			$val = scale($val, 0, 1, $MIN_RING, $MAX_RING);
+		}
+		else
+		{
+			$val = scale($val, 0, 1, $MIN, $MAX);
+		}
+
+		# apply trim
+		if (defined $trims{$signal{$name}})
+		{
+			my $t = ($trims{$signal{$name}} - 0.5) * 600;
+			$trim = "(trim $t) " if $t != 0;
+			$val += $t;
+		}
+
+		$port->write(chr($signal{$name}));
+		$port->write(pack("f", $val));
+		print "$signal{$name} $trim-> $val\n";
+	}
+	else
+	{
+		print "Error $name\n";
+	}
+
+}
+
+sub scale
+{
+  my ($val, $wasfrom, $wasto, $nowfrom, $nowto);
+
+  if (@_ == 3)
+  {
+    ($val, $wasto, $nowto) = @_;
+    $wasfrom = $nowfrom = 0;
+  }
+  else
+  {
+    ($val, $wasfrom, $wasto, $nowfrom, $nowto) = @_;
+  }
+
+  $val -= $wasfrom;
+  $val /= ($wasto - $wasfrom);
+  $val *= ($nowto - $nowfrom);
+  $val += $nowfrom;
+
+  return $val;
+}
+
+my $server = Net::OpenSoundControl::Server->new(
+	Port => $oscport,
+	Handler => \&dumpmsg,
+) or die "Could not start server: $@\n";
+
+$server->readloop();
