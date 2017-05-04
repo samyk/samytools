@@ -1,0 +1,65 @@
+#!/usr/bin/perl
+
+die "Describe/check CSR, cert, PEM, or PKCS#12 file
+usage: $0 <crt/pem/csr/pkcs ...>\n" unless @ARGV;
+
+# detect type of file based off of contents
+my %filetypes = (
+  'BEGIN CERTIFICATE REQUEST' => 'csr',
+  'BEGIN CERTIFICATE-' => 'crt',
+  'BEGIN (\w+) PRIVATE KEY' => '$1',
+  '\[\s*\w+\s*\]' => 'conf',
+);
+
+# extract information from file once we know what type
+my %cmds = (
+  'csr' => [qw/openssl req -text -noout -verify -in {FILENAME}/],
+  'rsa' => [qw/openssl rsa -in {FILENAME} -check/],
+  'ec'  => [qw/openssl ec -in {FILENAME} -text -param_out/],
+  'crt' => [qw/openssl x509 -in {FILENAME} -text -noout/],
+  'p12' => [qw/openssl pkcs12 -info -in {FILENAME}/],
+);
+
+# go through all files
+foreach my $file (@ARGV)
+{
+  # detect file type
+  my $type = detect($file);
+
+  # if we have a command to extract info
+  if ($cmds{$type})
+  {
+    my @cmd = @{$cmds{$type}};
+    map { s/\{FILENAME\}/$file/g } @cmd;
+    print "$file: $type (@cmd)\n";
+    system(@cmd);
+  }
+  else
+  {
+    print "$file: $type (no command known)\n";
+  }
+  print "\n";
+}
+
+# detect key file type
+sub detect
+{
+  my $file = shift;
+  my $type;
+
+  open(FILE, "<$file") || die "Can't read $file: $!";
+  my $content = join "", <FILE>;
+  close(FILE);
+
+  # test what kind of file this is
+  foreach my $test (keys %filetypes)
+  {
+    if ($content =~ /$test/)
+    {
+      my $tmp = $1;
+      $type = $filetypes{$test};
+      $type =~ s/\$1/lc($tmp)/eg;
+    }
+  }
+  return $type;
+}
