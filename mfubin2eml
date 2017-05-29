@@ -1,0 +1,22 @@
+#!/usr/bin/perl
+#
+# convert proxmark MFU (MIFARE Ultralight) .bin to .eml format
+# for proxmark3 loading
+#
+# -samy kamkar 05/28/2017
+
+use strict;
+
+die "usage: $0 <input .bin>\n" unless @ARGV == 1;
+my $input = shift;
+
+open(IN, "<$input") || die "Can't read $input$!";
+my $file = join "", <IN>;
+close(IN);
+
+while (length($file))
+{
+  my $out = substr($file, 0, 16, "");
+  print unpack("H*", $out);
+  print "\n";
+}
