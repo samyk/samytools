@@ -23,9 +23,18 @@ my $URL = "https://samy.pl/s/";
 
 use strict;
 
+my $ourl;
 while (1)
 {
-  my $url = `pbpaste`;
+  my $url = `/usr/bin/pbpaste`;
+  if ($ourl ne $url)
+  {
+    $ourl = $url;
+    open F, ">>/Users/samy/pb.txt";
+    print F "$url\n";
+    close F;
+  }
+
   if ($url =~ m|^https://www.dropbox.com/s/(.*?)/(.*?)\?dl=0$|)
   {
     my ($rand, $file) = ($1, $2);

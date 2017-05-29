@@ -1,7 +1,9 @@
 #!/usr/bin/perl -l
 
+my $x = shift @ARGV if $ARGV[0] eq "-x";
+
 foreach (@ARGV)
 {
-	s/(.{8})/"\\x".unpack("H2", pack("B8", $1))/eg;
+	s/(.{8})/($x ? "\\x" : "") . unpack("H2", pack("B8", $1))/eg;
 	print;
 }

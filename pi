@@ -8,7 +8,19 @@ my $opts = ($0 =~ /pix$/i ? "-X" : "");
 my $bbb = ($0 =~ /bb/i);
 
 my $MAC  = '(b8:27:eb|80:1f:0?2|74:da:38|00?:c0:ca)';
-my @devs = @ARGV ? @ARGV : qw/bridge0 en0 en1 bridge100 vnic0 vnic1/;
+my @defdevs = qw/bridge0 en0 en1 bridge100 vnic0 vnic1/;
+if ($ARGV[0] =~ /:/i)
+{
+  $MAC = shift $ARGV[0];
+}
+elsif ($ARGV[0] =~ /iphone/)
+{
+  $MAC = "80:be:5:3b:68:91";
+}
+else
+{
+  @devs = @ARGV ? @ARGV : @defdevs;
+}
 
 arp();
 

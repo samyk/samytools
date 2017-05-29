@@ -12,8 +12,8 @@ use strict;
 use Getopt::Std;
 
 # hackrf or rtl?
-my $fmcmd = system("rtl_test >>/dev/null 2>>/dev/null") ? "hackrf_fm" : "rtl_fm";
-#my $fmcmd = "rtl_fm";
+#my $fmcmd = system("rtl_test >>/dev/null 2>>/dev/null") ? "hackrf_fm" : "rtl_fm";
+my $fmcmd = "rtl_fm";
 
 my %o;
 getopts('bls:m:', \%o);

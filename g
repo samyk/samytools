@@ -6,13 +6,26 @@
 # -o = output actual grep string
 # -i = include regexp
 # -e = exclude regexp
-# -v = grep out AFTER grepping
+# -v = grep out (inverse grep) AFTER grepping
 
 # if there is no -i, actually add -i if no matches
 
+=pod
+
+# show lines in all files (in ., recursively) that match 'foo' but NOT 'bar'
+g foo -v bar
+
+# grep files/dirs a, b, and c for number.number (perl regexp \d\.\d)
+g a b c '\d\.\d'
+
+# perform `ls -lh` on every file ending in 'txt'
+find . | g txt$ -x ls -lh
+
+=cut
+
 my $grep = '/opt/local/bin/grep';
 use strict;
-die "usage: $0 [files] [-o] [-n <file match>] [-i=file] [-e=file] [-options] <match> [-v !match]\n" unless @ARGV;
+die "usage: $0 [files] [-o] [-n <file match>] [-i=file] [-e=file] [-options] <match> [-v !match] [-x <cmd, eg ls -lh>]\n" unless @ARGV;
 
 my ($no, $noi, $stdin, $matchfiles);
 
@@ -23,6 +36,7 @@ if (-t STDIN)
 }
 
 my $stdout = -t STDOUT;
+my @run;
 
 for (my $i = 0; $i < @ARGV; $i++)
 {
@@ -32,7 +46,16 @@ for (my $i = 0; $i < @ARGV; $i++)
 		$matchfiles = splice(@ARGV, $i+1, 1);
 		splice(@ARGV, $i, 1);
 	}
+
+	# if running a program on each match
+	if ($opt eq "-x")
+	{
+		@run = splice(@ARGV, $i+1, @ARGV);
+		$stdout = 0;
+		splice(@ARGV, $i, 1);
+	}
 }
+
 if (@ARGV >= 3 && $ARGV[-3] !~ /^-/ && $ARGV[-2] =~ /^-v(i)?$/)
 {
 	$noi = $1 ? "(?i)" : "";
@@ -40,6 +63,7 @@ if (@ARGV >= 3 && $ARGV[-3] !~ /^-/ && $ARGV[-2] =~ /^-v(i)?$/)
 	pop(@ARGV);
 }
 
+my $run;
 my $out = 0;
 for (my $i = 0; $i < @ARGV; $i++)
 {
@@ -57,9 +81,6 @@ for (my $i = 0; $i < @ARGV; $i++)
 }
 
 splice(@ARGV, 0, 0, $grep, ($ARGV[0] =~ /^-/ || @ARGV == 1) && -t STDIN ? <*> : ());
-#splice(@ARGV, -1, 0, "--exclude-dir=.git", "--exclude-dir=.svn", "--color=always", "-srne");
-#splice(@ARGV, -1, 0, "--exclude-dir=.git", "--exclude-dir=.svn", "--color=always", "-TPsne");
-
 splice(@ARGV, -1, 0, "--exclude-dir=.git", "--exclude-dir=.svn", "-TPs${stdin}");
 splice(@ARGV, -1, 0, "--color=always", "-n") if $stdout;
 splice(@ARGV, -1, 0, "-e");
@@ -73,11 +94,27 @@ if (length($no))
 	foreach my $line (@out)
 	{
 		(my $tmp = $line) =~ s/\e\[(?:\d+(?:;\d+)?)?m|\e\[K//g;
-		print "$line\n" if $tmp !~ /$noi$no/i;
+    if (@run)
+    {
+      system(@run, $line);
+    }
+		else
+		{
+		  print "$line\n" if $tmp !~ /$noi$no/i;
+		}
 	}
 	print STDERR $err;
 }
 else
 {
-	system(@ARGV);
+  if (@run)
+  {
+    my @out = map { chomp; $_ } `@ARGV`;
+    system(@run, @out);
+    #map { chomp; system(@run, $_) } `@ARGV`;
+  }
+  else
+  {
+	  system(@ARGV);
+	}
 }

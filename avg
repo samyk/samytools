@@ -2,10 +2,22 @@
 
 use strict;
 
-die "usage: $0 <numbers>\n" unless @ARGV;
-my $sum;
-$sum += $_ for @ARGV;
+die "usage: $0 <numbers> [NUMBERxTIMES] [...]\n" unless @ARGV;
+my ($sum, $count);
+foreach (@ARGV)
+{
+  if (/^(.*)x(.*)$/)
+  {
+    $count += $2;
+    $sum += $1 * $2;
+  }
+  else
+  {
+    $count++;
+    $sum += $_;
+  }
+}
 
-print "Count: " . @ARGV . "\n";
+print "Count: $count\n";
 print "Total: $sum\n";
-print "Average: " . int($sum/@ARGV) . "\n";
+print "Average: " . int($sum/$count) . "\n";
