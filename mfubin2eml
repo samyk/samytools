@@ -14,9 +14,20 @@ open(IN, "<$input") || die "Can't read $input$!";
 my $file = join "", <IN>;
 close(IN);
 
+my $lines = 255;
 while (length($file))
 {
-  my $out = substr($file, 0, 16, "");
+  my $out = substr($file, 0, 4, ""); # was 16
   print unpack("H*", $out);
   print "\n";
+  $lines--;
+}
+
+# still need to pad to 255 4-byte (8 hex char) blocks
+if ($lines > 0)
+{
+  while ($lines--)
+  {
+    print "00000000\n";
+  }
 }
