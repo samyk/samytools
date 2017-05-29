@@ -26,7 +26,74 @@ This is a collection of simple but effective tools to use on the command line to
 **all** - loop a command over a list of files
 `all 'tar -zxvf FILE' *tgz`
 
+**ana** -
+**arduino** -
+**asm** -
+**asm2pl** -
+**avg** -
+**b2h** -
+**b64** -
+**baud** -
+**bl** -
+**ccchanbw** -
+**ccdeviatn** -
+**ccdrate** -
+**ccfreq** -
+**char** -
+**conv** -
+**cpu** -
+**de_bruijn** -
+**desktopinfo** -
+**diffbits** -
+**diffdir** -
+**disable_swap** -
+**dos2unix** -
+**ds** -
+**exp** -
+**g** -
+**gcode-xbox** -
+
+**hex2bin** -
+
+**ip** - list IPv4 addresses, interface name and default gateway
+`ip` # list all IPs, interfaces, and gateway
+`ip en0` # only list IP of en0 interface
+
+**ipfwd** - (OS X) enable/disable IP forwarding, temporarily or permanently
+`ipfwd 1` # enable ip forwardwing
+`ipfwd 0` # disable ip forwardwing
+`ipfwd 5 10` # enable for 5 seconds, disable for 10 seconds, enable on exit
+
 **onchange** - run a command whenever a file/directory changes
+`onchange . rsync -av ./ remote.com:project
+
+**pb2url** -
+**pi** -
+**pm3cs8** -
+**pmi** -
+**pn9** -
+**rtl** -
+**same** -
+**sdi** -
+**sdr** -
+**serialsniff** -
+**sik** -
+**siteinfo** -
+**spec** -
+**strace** -
+**teensy** -
+**testpb** -
+**timer** -
+**tm** -
+**unm** -
+**unz** -
+**ur** -
+**url_sniff** -
+**watch** -
+**whiten** -
+**wx** -
+**xor** -
+
 
 **rtl** - uses rtl\_fm or hackrf\_fm to listen to a frequency, with a default of AM modulation and a high sample rate.
 
