@@ -5,6 +5,9 @@
 #
 # -samy kamkar 05/28/2017
 
+my $BLOCKS = 255;
+my $UIDLOC = -540; # UID is 540 bytes from the end
+my $BLOCKSIZE = 4; # in bytes
 use strict;
 
 die "usage: $0 <input .bin>\n" unless @ARGV == 1;
@@ -14,12 +17,29 @@ open(IN, "<$input") || die "Can't read $input$!";
 my $file = join "", <IN>;
 close(IN);
 
-my $lines = 255;
+my $lines = $BLOCKS;
+my $uid = unpack("H14",
+  substr($file, length($file) + $UIDLOC, 3) .
+  substr($file, (length($file) + $UIDLOC) + 4, 4));
+my $pwd = unpack("H8", substr($file, length($file) - 8, 4));
 while (length($file))
 {
-  my $out = substr($file, 0, 4, ""); # was 16
-  print unpack("H*", $out);
-  print "\n";
+  my $out = substr($file, 0, $BLOCKSIZE, ""); # was 16
+  $out = unpack("H*", $out);
+  print "$out\n";
+
+  # grab UID
+=cut
+  if ($BLOCKS - $lines == 12)
+  {
+    $uid = substr($out, 0, 6);
+  }
+  elsif ($BLOCKS - $lines == 13)
+  {
+    $uid .= substr($out, 0, 8);
+  }
+=cut
+
   $lines--;
 }
 
@@ -31,3 +51,6 @@ if ($lines > 0)
     print "00000000\n";
   }
 }
+
+print STDERR "UID: $uid\n";
+print STDERR "PWD: $pwd\n";
