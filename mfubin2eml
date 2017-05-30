@@ -18,6 +18,7 @@ my $BLOCKSIZE = 4; # in bytes
 my $AMIITOOL = 'amiitool'; # path to amiitool (unless in $PATH)
 my $KEYFILE = '/Users/samy/Code/amiibo/key_retail.bin'; # path to retail key file
 my $ADDHDR = 1; # add 48 byte header?
+my $DECRYPT = 0; # auto-decrypt
 
 my %game = (
 0x000 => "Mario",
@@ -567,10 +568,17 @@ err "";
 my $run;
 if ($enc_check && !$dec_check)
 {
-  $run = "'$AMIITOOL' -d -k '$KEYFILE' -i '$input'";
-  err "Looks like encrypted file, decrypting";
-  err "Running: $run";
-  $file = `$run`;
+  if ($DECRYPT)
+  {
+    $run = "'$AMIITOOL' -d -k '$KEYFILE' -i '$input'";
+    err "Looks like encrypted file, decrypting";
+    err "Running: $run";
+    $file = `$run`;
+  }
+  else
+  {
+    err "Looks like encrypted file but setting preventing us from decrypting";
+  }
 }
 elsif ($enc_check && $dec_check)
 {
