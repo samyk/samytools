@@ -1,0 +1,33 @@
+#!/usr/bin/perl
+#
+# convert image files (eg .dxf) to SVG
+
+# Possible paths to Inkscape binary
+my @inkscape = (qw|
+  /Applications/Inkscape.app/Contents/Resources/bin/inkscape
+  /Applications/Design/Inkscape.app/Contents/Resources/bin/inkscape
+  /opt/local/bin/inkscape
+|, map { "$_/inkscape" } split(/:/, $ENV{PATH}));
+
+# Find path to inkscape
+my ($INKSCAPE) = grep -e, @inkscape;
+die "You must have inkscape installed or discoverable from your \$PATH" unless $INKSCAPE;
+
+use Cwd;
+use strict;
+
+die "usage: $0 <from file> [to svg file]\n" unless @ARGV;
+my $cwd = cwd();
+
+my ($from, $to) = @ARGV;
+
+# need absolute paths
+$from = "$cwd/$from" unless $from =~ m|^/|;
+
+# out filename
+($to = $from) =~ s/\.\w+$/.svg/ unless defined($to);
+
+print "Converting $from -> $to!\n";
+system($INKSCAPE, "-l", $to, $from);
+
+#/Applications/Design/Inkscape.app/Contents/Resources/bin/inkscape -l `pwd`/test.svg `pwd`/driven-test2.dxf
