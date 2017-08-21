@@ -1,0 +1,61 @@
+#!/usr/bin/perl
+#
+# add/remove manchester encoding
+# -samy kamkar
+# https://samy.pl
+
+#$_=pop;while(length($_)>2){s/^(..?.?)//;$x=$1;if($x eq"110"){print"0"}elsif($x eq"100"){print"1"}else{print"_"}}print$/.$_.$/
+
+use strict;
+die "usage: $0 <data>\n" unless @ARGV;
+
+foreach my $in (@ARGV)
+{
+	my $bin;
+	my $man;
+	if ($in =~ /^[01]+$/)
+	{
+		$bin = $in;
+	}
+	elsif ($in =~ /^[a-f\d]+$/i)
+	{
+		$bin = unpack("B*", pack("H*", $in));
+	}
+	else
+	{
+		die "unknown format: $in\n";
+	}
+	my $orig = $bin;
+	$orig =~ s/(.)/$1 ? "01" : "10"/eg;
+	$orig =~ s/(.{8}+)(.*)/"$1$2" . ("0" x 8 - length($2))/eg;
+
+	# check if we're off a bit in manchester
+	if ($bin =~ /^(..){0,}(11|00)/)
+	{
+		$bin =~ s/^(.)//;
+		print STDERR "Removing first bit: $1\n\n";
+	}
+
+	while (my $two = substr($bin, 0, 2, ""))
+	{
+		if ($two !~ /^01$|^10$/)
+		{
+			print STDERR "error: $two\n";
+		}
+		else
+		{
+			$man .= substr($two, 0, 1);
+		}
+	}
+
+	print STDERR "$man\n";
+	my $hex = unpack("H*", pack("B*", $man));
+	$man =~ s/(.)/$1 ? 0 : 1/eg;
+	print STDERR "$man\n\n";
+	print "$hex\n";
+	print unpack("H*", pack("B*", $man)) . "\n";
+#	print unpack("H*", pack("B*", $man . ("0" x (8 - length($man)) ) )) . "\n";
+
+	print "TO manchester: ";
+	print unpack("H*", pack("B*", $orig)) . "\n";
+}
