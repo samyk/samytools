@@ -1,136 +1,121 @@
 #!/usr/bin/perl
+#
+# compare two groups of equal length (per row) binary data
+# looking for similarities between each group, both groups,
+# and differences between individual groups
+#
+# -samy kamkar
 
-# compare two files, line by line, with aligned data, looking for differences in bits
 use strict;
 use Term::ANSIColor;
 
+die "usage: $0 <file>\n" if -t STDIN && !@ARGV;
+
+# binary set a and b
 my (@a, @b);
-my $byet = 0;
+my $next = 0;
+
+# read in our data
 while (<>)
 {
-	chomp;
-	s/\s*//;
-	if ($_ eq "")
-	{
-		$byet++;
-		next;
-	}
+  chomp;
+  s/\s//g;
+  if ($_ eq "") { $next++; next; }
 
-	# already bin
-	if (/^[01]+$/) { }
-	elsif (/^[a-f\d]+/i) # hex
-	{
-		s/(.)/unpack("B4", pack("H", $1))/eg;
-	}
-	else # ascii
-	{
-		s/(.)/unpack("B8", $1)/eg;
-	}
-	$byet ? push(@b, $_) : push(@a, $_);
+  # already binary
+  if (/^[01]+$/) { }
+  elsif (/^[a-f\d]+/i) # hex
+  {
+    s/(.)/unpack("B4", pack("H", $1))/eg;
+  }
+  else # ascii
+  {
+    s/(.)/unpack("B8", $1)/eg;
+  }
+  my $bits = [split //];
+  $next ? push(@b, $bits) : push(@a, $bits);
 }
 
-my @ad = cmprow(\@a);
-print "\n";
-my @bd = cmprow(\@b, \@ad, $a[0]);
+# bit length
+my $bitlen = @{$a[0]};
 
-sub cmprow
+# find common bits between pieces
+my @common = find_common(@a, @b);
+my @common_a = find_common(@a);
+my @common_b = find_common(@b);
+
+# find differences between the two groups
+my @diff = map { !$common[$_] && $common_a[$_] && $common_b[$_] ? 1 : 0 } 0 .. $bitlen-1;
+
+# now print the sets
+cmpr(\@a, \@common_a);
+midrow();
+# print just same/diff rows easier
+cmpr(\@b, \@common_b);
+
+sub midrow
 {
-	my ($a, $od, $row) = @_;
-	my @a = @{$a};
-	my @od = ($od ? @{$od} : ());
-	my @row = split(//, $row);
+  for (my $i = 0; $i < $bitlen; $i++)
+  {
+    my $color =
+      $diff[$i] ? 'bold blue' : # if different between groups
+      $common[$i] ? 'bold green' : # same between groups
+      $common_a[$i] || $common_b[$i] ? 'cyan' : # common in single group
+      'reset';
+    my $letter = $diff[$i] ? 'X' : $common[$i] ? '=' : $common_a[$i] ? '^' : $common_b[$i] ? 'v' : '-';
+    print color($color) . $letter . color('reset');
+  }
+  print "\n";
+}
+sub cmpr
+{
+  my ($rows, $common) = @_;
 
-	my @diff;
-	my @last = split(//, $a[0]);
-	print "$a[0]\n" if !@row;
-	for (my $i = @row ? 0 : 1; $i < @a; $i++)
-	{
-		my @abit = split(//, $a[$i]);
-		for (my $j = 0; $j < (@abit > @last ? @abit : @last); $j++)
-		{
-			$last[$j] ||= 0;
-			$abit[$j] ||= 0;
-			# second run
-			if (@od)
-			{
-				if ($abit[$j] != $last[$j] && $od[$j] && $row[$j] != $abit[$j])
-				{
-					print color('magenta') . $abit[$j] . color('reset');
-					$diff[$j] = 1;
-				}
-				elsif ($abit[$j] != $last[$j] && !$od[$j] && $row[$j] != $abit[$j])
-				{
-					print color('cyan') . $abit[$j] . color('reset');
-					$diff[$j] = 1;
-				}
-				elsif ($abit[$j] != $last[$j] && !$od[$j])
-				{
-					print color('green') . $abit[$j] . color('reset');
-					$diff[$j] = 1;
-				}
-				elsif ($abit[$j] == $last[$j] && !$od[$j] && $abit[$j] != $row[$j])
-				{
-					print color('red') . $abit[$j] . color('reset');
-				}
-				elsif ($abit[$j] == $last[$j] && $od[$j] && $row[$j] != $abit[$j])
-				{
-					print color('yellow') . $abit[$j] . color('reset');
-				}
-				else
-				{
-					print $abit[$j];
-				}
-			}
-			else
-			{
-				if ($abit[$j] != $last[$j])
-				{
-					print color('blue') . $abit[$j] . color('reset');
-					$diff[$j] = 1;
-				}
-				else
-				{
-					print $abit[$j];
-				}
-			}
-		}
-		print "\n";
-	}
+  # go through rows of the set
+  foreach my $bits (@{$rows})
+  {
+    for (my $i = 0; $i < $bitlen; $i++)
+    {
+      my $bit = $bits->[$i];
+      my $commbit = $common->[$i];
+      my $color =
+        # same on all rows is green
+        $common[$i] ? 'green' :
+        # common in this set and not other is blue/red
+        $diff[$i] ? ($bit ? 'magenta' : 'red') :
+        $commbit ? 'cyan' : 'reset';
+      print color($color) . $bit . color('reset');
+    }
+    print "\n";
+  }
+#  print "\n";
+}
 
-=cut
-	for (my $i = 0; $i < @row; $i++)
-	{
-		print "$last[$i]";
-	}
-	print "\n";
-	for (my $i = 0; $i < @row; $i++)
-	{
-		print "$row[$i]";
-	}
-	print "\n";
-	for (my $i = 0; $i < @row; $i++)
-	{
-		print $diff[$i] ? 1 : 0;
-	}
-	print "\n";
-	for (my $i = 0; $i < @row; $i++)
-	{
-		print $od[$i] ? 1 : 0;
-	}
-	print "\n";
-=cut
-	for (my $i = 0; $i < @row; $i++)
-	{
-		if (!$od[$i] && !$diff[$i] && $last[$i] != $row[$i])
-		{
-			print color('red') . "X" . color('reset');
-		}
-		else
-		{
-			print '_';
-		}
-	}
-	print "\n";
+# find common bits among all rows
+sub find_common
+{
+  my @common = (1) x $bitlen;
+  my @lastbit = (-1) x $bitlen;
+  # go through all array refs passed in
+  foreach my $bits (@_)
+  {
+    # go through all bits in the array ref
+    for (my $i = 0; $i < @{$bits}; $i++)
+    {
+      my $bit = $bits->[$i];
+      # ignore comparing first bit (nothing to compare to yet)
+      if ($lastbit[$i] != -1)
+      {
+        # if last bit is different
+        if ($lastbit[$i] != $bit)
+        {
+          $common[$i] = 0;
+        }
+      }
+      $lastbit[$i] = $bit;
+    }
+  }
 
-	return @diff;
+  #print "@common\n";
+  return @common;
 }
