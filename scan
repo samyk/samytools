@@ -9,7 +9,7 @@ my @devs = @ARGV ? @ARGV : qw/bridge0 en0 en1 bridge100 vnic0 vnic1 eth0 eth1/;
 # go through each device and scan network
 foreach my $dev (@devs)
 {
-	my ($ip) = `ifconfig $dev 2>>/dev/null` =~ /inet\s+(\S+)\.\d+\s/;
+	my ($ip) = `ifconfig $dev 2>>/dev/null` =~ /inet\s+(?:addr:)?(\S+)\.\d+\s/;
 
 	if ($ip)
 	{	
@@ -33,7 +33,7 @@ sub arp
 
       $match .= ": " . join(", ", map { s/\r//g; chomp; $_ } @oui) if @oui;
     }
-    print "$match\n" unless $match =~ /\(incomplete\)/;
+    print "$match\n" unless $match =~ /[<(]incomplete[)>]|ff:ff:ff:ff:ff:ff/i;
   }
 }
 __DATA__
