@@ -1,0 +1,29 @@
+#!/usr/bin/perl
+
+# -samy kamkar
+
+# path to OUI berkeleydb
+my $filename = "/b/data/oui.bdb";
+use strict;
+use BerkeleyDB;
+
+die "usage: $0 <MAC address> [mac ...]\n" unless @ARGV;
+
+my %h;
+tie %h, "BerkeleyDB::Hash",
+	-Filename => $filename,
+	-Flags    => DB_CREATE
+	or die "Cannot open file $filename: $! $BerkeleyDB::Error\n" ;
+
+foreach my $mac (@ARGV)
+{
+  $mac =~ s/\b(\w)\b/0$1/g;
+	$mac =~ s/\W//g;
+	my $nm = $mac = lc($mac);
+	$mac =~ s/(..)(..)(..)(..)(..)(..)/$1:$2:$3:$4:$5:$6/;
+	$nm =~ s/(.{6}).*/$1/;
+	
+	my $nm2 = uc($nm);
+	$nm2 =~ s/(..)(..)(..)/$1-$2-$3/;
+	print "$mac ($nm2):\n" . $h{$nm};
+}

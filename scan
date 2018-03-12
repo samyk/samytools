@@ -1,0 +1,60 @@
+#!/usr/bin/perl
+
+# -samy kamkar
+
+my @devs = @ARGV ? @ARGV : qw/bridge0 en0 en1 bridge100 vnic0 vnic1 eth0 eth1/;
+
+#arp();
+
+# go through each device and scan network
+foreach my $dev (@devs)
+{
+	my ($ip) = `ifconfig $dev 2>>/dev/null` =~ /inet\s+(\S+)\.\d+\s/;
+
+	if ($ip)
+	{	
+		print "Scanning $dev $ip.0/24\n";
+		`nmap -sn $ip.0/24`;
+		#arp();
+	}
+}
+arp();
+
+sub arp
+{
+  foreach my $match (`arp -na`)
+  {
+    chomp($match);
+    if ($match =~ /at (\w\S+)/ && $1)
+    {
+      my @oui = `oui $1`;
+      shift @oui;
+      splice @oui, 1, 1;
+
+      $match .= ": " . join(", ", map { s/\r//g; chomp; $_ } @oui) if @oui;
+    }
+    print "$match\n" unless $match =~ /\(incomplete\)/;
+  }
+}
+__DATA__
+tigerblood:/Users/samy/code$ ifconfig en1
+en1: flags=8863<UP,BROADCAST,SMART,RUNNING,SIMPLEX,MULTICAST> mtu 1500
+	ether e0:f8:47:00:98:82 
+	inet6 fe80::e2f8:47ff:fe00:9882%en1 prefixlen 64 scopeid 0x5 
+	inet 10.0.1.32 netmask 0xffffff00 broadcast 10.0.1.255
+	media: autoselect
+	status: active
+tigerblood:/Users/samy/code$ ifconfig bridge0
+bridge0: flags=8863<UP,BROADCAST,SMART,RUNNING,SIMPLEX,MULTICAST> mtu 1500
+	ether ac:de:48:c2:90:b4 
+	inet 192.168.2.1 netmask 0xffffff00 broadcast 192.168.2.255
+	Configuration:
+		priority 0 hellotime 0 fwddelay 0 maxage 0
+		ipfilter disabled flags 0x2
+	member: en0 flags=3<LEARNING,DISCOVER>
+	         port 4 priority 0 path cost 0
+	Address cache (max cache: 100, timeout: 1200):
+		b8:27:eb:85:69:a2 en0 1179 flags=0<>
+
+
+? (192.168.2.8) at b8:27:eb:85:69:a2 on bridge0 ifscope [bridge]
