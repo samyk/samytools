@@ -1,0 +1,52 @@
+#!/usr/bin/perl
+#
+# generate oui.bdb for `oui` and `scan`
+# -samy kamkar
+
+my $intxt = shift;
+use strict;
+use BerkeleyDB;
+use vars qw( %h $k $v );
+
+my ($mac, $company);
+my $filename = "oui.bdb";
+unlink $filename;
+
+tie(%h, "BerkeleyDB::Hash", -Filename => $filename, -Flags => DB_CREATE) or die "Cannot open file $filename: $! $BerkeleyDB::Error\n";
+
+my $oui;
+if ($intxt)
+{
+  open(F, "<$intxt");
+  $oui = join "", <F>;
+  close(F);
+}
+else
+{
+  use LWP::Simple;
+  $oui = LWP::Simple::get("http://standards-oui.ieee.org/oui.txt");
+  open(OUI, ">oui.txt." . time());
+  print OUI $oui;
+  close(OUI);
+}
+
+foreach (split /\n/, $oui)
+{
+  if (/^\s{0,2}(\w{6}|\w\w-\w\w-\w\w)\s+\(base 16\)\s+(\S.*)/)
+  {
+    $mac = $1;
+    $mac =~ s/-//g;
+    $company = "$2\n";
+  }
+  elsif ($mac && /^\s+(\S.*)$/)
+  {
+    $company .= "$1\n";
+  }
+  if (/^\s+$/)
+  {
+    if ($mac) { $h{lc $mac} = $company }
+    $mac=undef;
+  }
+}
+if ($mac) { $h{lc $mac} = $company }
+untie %h;
