@@ -1,0 +1,85 @@
+#!/usr/bin/perl
+#
+# convert hex to binary, including output of tools like `hexdump`
+# while ignoring (and validating) offsets
+#
+# -samy kamkar, 7/18/2018
+
+die "usage: $0 <hex string | - | file>\n" unless @ARGV || !-t STDIN;
+
+my $data = shift;
+if (-e $data)
+{
+  open(F, "<$data") || die "Can't read $data: $!";
+  $data = join "", <F>;
+  close F;
+}
+elsif ($data eq "-")
+{
+  $data = join "", <STDIN>;
+}
+elsif (!-t STDIN)
+{
+  $data = join "", <>;
+}
+
+$data = cleanup($data);
+print $data;
+
+sub cleanup
+{
+  $data =~ s/^\n//gm;
+  $data =~ s/\n$//gm;
+
+  my @data = split "\n", $data;
+
+  # do we have offset eg from `hexdump`? if so, remove offset
+  my ($lastoff, $lastlen, $newdata);
+
+  # ony if 2 or more lines
+  if (@data >= 2)
+  {
+    foreach my $row (@data)
+    {
+      # parse offset
+      if ($row =~ /^([a-f\d]+)(?:\s+([a-f\d][a-f\d\s]+))?(?:\|.*\|\s*)?$/i)
+      {
+        my ($offset, $rest) = ($1, $2);
+        $rest =~ s/\s//g;
+        $newdata .= $rest;
+
+        # only test after first row
+        if ($lastoff)
+        {
+          # is our new offset the correct increase of bytes?
+          if (hex($offset) - $lastoff != $lastlen)
+          {
+            $newdata = $data;
+            break;
+          }
+        }
+        $lastoff = hex($offset);
+        $lastlen = length($rest) / 2;
+      }
+      # no offset
+      else
+      {
+        $newdata = $data;
+        break;
+      }
+    }
+  }
+  else
+  {
+    $newdata = $data;
+  }
+
+  $newdata =~ s/\s//g;
+  if ($newdata =~ /[^\da-f]/i)
+  {
+    die "Data isn't hex!\n";
+  }
+  $newdata =~ s/(..)/pack "H2", $1/eg;
+
+  return $newdata;
+}
