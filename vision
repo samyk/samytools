@@ -1,0 +1,52 @@
+#!/usr/bin/env python3
+# show what's in an image using Google Cloud Vision API
+# -samy kamkar, 2018/12/02
+
+import re
+import io
+import os
+import sys
+
+GOOGLE_KEY = '/users/samy/code/cv/bgsort/bgkey.json'
+GENV = 'GOOGLE_APPLICATION_CREDENTIALS'
+if not os.environ.get(GENV):
+    os.environ[GENV] = GOOGLE_KEY
+
+if len(sys.argv) == 1:
+    print('usage: ' + sys.argv[0] + ' <path to image> [...]')
+    exit()
+
+# Imports the Google Cloud client library
+from google.cloud import vision
+from google.cloud.vision import types
+
+# Instantiates a client
+client = vision.ImageAnnotatorClient()
+
+def p(line):
+    sys.stdout.write(line)
+
+def process_file(fn):
+    # Loads the image into memory
+    try:
+        print("path: " + fn)
+        with io.open(fn, 'rb') as image_file:
+            content = image_file.read()
+
+        image = types.Image(content=content)
+
+        # Performs label detection on the image file
+        response = client.label_detection(image=image)
+        print(response)
+    except: pass
+
+def scan_files(fn):
+    if os.path.isfile(fn) and re.search(r'(png|jpg|jpeg|gif|bmp|tiff)$', fn, re.I):
+        process_file(fn)
+    elif os.path.isdir(fn):
+        for f in os.listdir(fn):
+            fp = fn + '/' + f
+            scan_files(fp)
+
+for fn in sys.argv[1:]:
+    scan_files(fn)
