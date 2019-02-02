@@ -65,6 +65,7 @@ printbits();
 sub printbits
 {
   my $max = ($bitlen - 1) % 8;
+  print " " x (length($orig[0]) + 1) if $verbose;
   foreach (1 .. $bitlen)
   {
     print color($max == 0 ? 'bold' : $max == 4 ? 'yellow' : 'reset') . $max . color('reset');
