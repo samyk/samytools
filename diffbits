@@ -9,11 +9,13 @@
 use strict;
 use Term::ANSIColor;
 
-die "usage: $0 <file>\n" if -t STDIN && !@ARGV;
+my $verbose = $ARGV[0] eq "-v" ? shift() : 0;
+die "usage: $0 [-v] <file>\n" if -t STDIN && !@ARGV;
 
 # binary set a and b
-my (@a, @b);
+my (@a, @b, @orig);
 my $next = 0;
+my $ind = 0;
 
 # read in our data
 while (<>)
@@ -21,6 +23,10 @@ while (<>)
   chomp;
 #  s/\s//g;
   if ($_ eq "") { $next++; next; }
+  else
+  {
+    push @orig, $_;
+  }
 
   # already binary
   if (/^[01\s_]+$/) { }
@@ -69,6 +75,7 @@ sub printbits
 
 sub midrow
 {
+  print " " x (length($orig[0]) + 1) if $verbose;
   for (my $i = 0; $i < $bitlen; $i++)
   {
     my $color =
@@ -88,6 +95,7 @@ sub cmpr
   # go through rows of the set
   foreach my $bits (@{$rows})
   {
+    print "$orig[$ind++] " if $verbose;
     # go through each bit in the row
     for (my $i = 0; $i < $bitlen; $i++)
     {
