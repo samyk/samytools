@@ -19,14 +19,14 @@ my $next = 0;
 while (<>)
 {
   chomp;
-  s/\s//g;
+#  s/\s//g;
   if ($_ eq "") { $next++; next; }
 
   # already binary
-  if (/^[01]+$/) { }
-  elsif (/^[a-f\d]+/i) # hex
+  if (/^[01\s_]+$/) { }
+  elsif (/^[a-f\d\s_]+/i) # hex
   {
-    s/(.)/unpack("B4", pack("H", $1))/eg;
+    s/([a-f\d])/unpack("B4", pack("H", $1))/eg;
   }
   else # ascii
   {
@@ -53,6 +53,20 @@ midrow();
 # print just same/diff rows easier
 cmpr(\@b, \@common_b);
 
+# print bits
+printbits();
+
+sub printbits
+{
+  my $max = ($bitlen - 1) % 8;
+  foreach (1 .. $bitlen)
+  {
+    print color($max == 0 ? 'bold' : $max == 4 ? 'yellow' : 'reset') . $max . color('reset');
+    $max = ($max - 1) % 8;
+  }
+  print "\n";
+}
+
 sub midrow
 {
   for (my $i = 0; $i < $bitlen; $i++)
@@ -74,16 +88,17 @@ sub cmpr
   # go through rows of the set
   foreach my $bits (@{$rows})
   {
+    # go through each bit in the row
     for (my $i = 0; $i < $bitlen; $i++)
     {
       my $bit = $bits->[$i];
       my $commbit = $common->[$i];
       my $color =
-        # same on all rows is green
-        $common[$i] ? 'green' :
-        # common in this set and not other is blue/red
-        $diff[$i] ? ($bit ? 'magenta' : 'red') :
-        $commbit ? 'cyan' : 'reset';
+        $bit ne '0' && $bit ne '1' ? 'reset' : # ignore space/underlines
+        $common[$i] ? 'green' : # same on all rows is green
+        $diff[$i] ? ($bit ? 'magenta' : 'red') : # common in this set and not other is blue/red
+        $commbit ? 'cyan' : # common just in the group
+        'reset';
       print color($color) . $bit . color('reset');
     }
     print "\n";
