@@ -10,13 +10,16 @@ RewriteEngine on
 RewriteRule ^(.*)/(.*)$ https://www.dropbox.com/s/$1/$2?raw=1 [L,NC]
 =cut
 
-if (my $p = fork)
+if ($ARGV[0] ne "-F")
 {
-  die "Running in bg! (pid $p)";
+  if (my $p = fork)
+  {
+    die "Running in bg! (pid $p)";
+  }
+  close(STDERR);
+  close(STDIN);
+  close(STDOUT);
 }
-close(STDERR);
-close(STDIN);
-close(STDOUT);
 
 my $SLEEP = 0.3;
 my $URL = "https://samy.pl/s/";
@@ -30,9 +33,9 @@ while (1)
   if ($ourl ne $url)
   {
     $ourl = $url;
-    open F, ">>/Users/samy/pb.txt";
-    print F "$url\n";
-    close F;
+#    open F, ">>/Users/samy/pb.txt";
+#    print F "$url\n";
+#    close F;
   }
 
   if ($url =~ m|^https://www.dropbox.com/s/(.*?)/(.*?)\?dl=0$|)

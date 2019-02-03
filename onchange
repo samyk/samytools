@@ -28,12 +28,13 @@ sub usage
 	{
 		$secs = shift(@ARGV);
 	}
-	my $file = shift(@ARGV);
+
+	my $file = -e $ARGV[-1] && !-e $ARGV[0] ? $ARGV[-1] : shift(@ARGV);
 	my @command = @ARGV;
 
 	if (!-e $file || !@command)
 	{
-		die "usage: $0 [secs] <file/dir> <command to run on change>\n";
+		die "usage: $0 [secs] [file/dir (or last arg of command)] <command to run on change>\n";
 	}
 
 	return ($secs, $file, @command);

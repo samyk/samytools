@@ -11,6 +11,7 @@ if (!@ARGV)
 for (my $i = 0; $i < @ARGV; $i++)
 {
 	$_ = $ARGV[$i];
+	my $orig = $_;
   s/\.//;
 	my $ms = "000";
 
@@ -35,6 +36,10 @@ for (my $i = 0; $i < @ARGV; $i++)
 	elsif (length($_) == 10 || length($_) == 9)
 	{
 		print localtime($_) . "\n";
+	}
+	elsif ($orig =~ /^(\d{10})\.(\d+)$/)
+	{
+	  print localtime($1) . $2 . "\n";
 	}
 	else
 	{

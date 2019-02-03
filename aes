@@ -5,9 +5,17 @@
 use strict;
 use Crypt::OpenSSL::AES;
 
-die "usage: $0 <key> <message>\n" unless @ARGV == 2;
+die "usage: $0 [-d | -e] <0xkey> <0xmessage>\n" unless @ARGV >= 2;
+
+my $crypt;
+if ($ARGV[0] eq "-d" || $ARGV[0] eq "-e")
+{
+  $crypt = shift;
+}
 
 my ($key, $msg) = @ARGV;
+$key =~ s/^0x//;
+$msg =~ s/^0x//;
 
 $key =~ s/(..)/pack("H2", $1)/eg;
 $msg =~ s/(..)/pack("H2", $1)/eg;
@@ -18,14 +26,29 @@ if (length($msg) % 16 != 0)
 	$msg .= "\x00" x (16 - (length($msg) % 16));
 }
 
+print length($key).$/;
+print "$key\n";
 my $cipher = new Crypt::OpenSSL::AES($key);
 
 my $encrypted = $cipher->encrypt($msg);
-print "Encrypted: $encrypted\n";
-print "Encrypted: " . unpack("H*", $encrypted) . "\n";
+if ($crypt eq "-e") {
+  print unpack("H*", $encrypted) . "\n";
+}
+elsif (!$crypt)
+{
+  print "Encrypted: $encrypted\n";
+  print "Encrypted: " . unpack("H*", $encrypted) . "\n";
+}
 
 my $decrypted = unpack("H*", $cipher->decrypt($msg));
-print "Decrypted: " . pack("H*", $decrypted) . "\n";
-print "Decrypted: $decrypted\n";
+if ($crypt eq "-d")
+{
+  print "$decrypted\n";
+}
+elsif (!$crypt)
+{
+  print "Decrypted: " . pack("H*", $decrypted) . "\n";
+  print "Decrypted: $decrypted\n";
+}
 #print "Decrypted: " . unpack("H*", $decrypted) . "\n";
 #print "Decrypted: " 
