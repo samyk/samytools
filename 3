@@ -42,6 +42,9 @@ my $VERSION = "0.42";
 #
 # ooo - () ** * / % + - . << >> & | ^
 #
+use Term::ReadLine;
+my $term = Term::ReadLine->new('3');
+my $OUT = $term->OUT || \*STDOUT;
 
 my $baseconv = shift(@ARGV);
 my @values = @ARGV;
@@ -69,11 +72,14 @@ unless ($baseconv || $baseconv =~ /^calc/i) {
  my ($parens, $data) = (0, "");
  print ": Type `help` for help.\n\n";
  while ($alive) {
-  print "]" x $parens;
-  print "[" x ($parens * -1);
-  print "> ";
+  my $prompt;
+  $prompt .= "]" x $parens;
+  $prompt .= "[" x ($parens * -1);
+  $prompt .= "> ";
 
-  chomp($data .= <STDIN>);
+  #chomp($data .= <STDIN>);
+  chomp($data = $term->readline($prompt));
+  $term->addhistory($data) if $data =~ /\S/;
   $parens = ($data =~ tr|(||) - ($data =~ tr|)||);
   if ($data =~ /^\s*(?:help|\?)\s*$/mi) {
    &help();
@@ -355,7 +361,11 @@ sub pbc2bin {
 }
 
 sub dec2bin {
- my $val = unpack("B*", pack("N", shift));
+ my $dec = shift;
+
+ my $val = pack($dec >= 2**32 ? "Q" : "N", $dec);
+ $val = reverse($val) if $dec >= 2**32;
+ $val = unpack("B*", $val);
  $val =~ s/^0*//;
  return $val;
 }
