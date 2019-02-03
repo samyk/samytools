@@ -1,0 +1,10 @@
+#!/usr/bin/perl
+
+use strict;
+
+die "usage: $0 <subnet [eg 192.168.55]>\n" unless @ARGV == 1;
+my $ip = shift || "192.168.55";
+
+system("defaults write /Library/Preferences/SystemConfiguration/com.apple.nat NAT -dict-add SharingNetworkMask 255.255.255.0");
+system("defaults write /Library/Preferences/SystemConfiguration/com.apple.nat NAT -dict-add SharingNetworkNumberStart $ip.0");
+system("defaults write /Library/Preferences/SystemConfiguration/com.apple.nat NAT -dict-add SharingNetworkNumberEnd $ip.254");

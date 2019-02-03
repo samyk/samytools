@@ -1,0 +1,21 @@
+#!/usr/bin/perl
+
+use strict;
+my $DESC = "view size of functions and sections of binary objects\n";
+
+die "usage: $0 <elf/obj/bin>\n$DESC" unless @ARGV;
+my $obj = shift;
+
+#run(qw/nm --print-size --size-sort --radix=d/, $obj);
+my $cmd = "nm --print-size --size-sort --radix=d $obj";
+my @out = map { s/^(\d+ )(0*)/$1 . (" " x length($2))/eg; $_ } `$cmd`;
+print join "", @out;
+print "\n";
+
+run(qw/size -A -d/, $obj);
+
+sub run
+{
+  print STDERR "@_\n";
+  system(@_);
+}

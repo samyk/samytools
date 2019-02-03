@@ -1,0 +1,12 @@
+#!/usr/bin/perl
+
+use strict;
+
+die "usage: $0 <string> <offset> [length] [add]\n" unless @ARGV >= 2;
+
+my ($msg, $start, $len, $add) = @ARGV;
+my @msg = split //, $msg;
+print join "", splice(@msg, $start, $len, $add);
+print "\n";
+print join "", @msg;
+print "\n";
