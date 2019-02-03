@@ -1,0 +1,13 @@
+#!/usr/bin/perl -wn
+#  make it slurp the whole file at once:
+undef $/;
+#  delete first header:
+s/^\n*.*\n+//;
+#  delete last footer:
+s/\n+.*\n+$/\n/g;
+#  delete page breaks:
+s/\n\n+[^ \t].*\n\n+(\S+).*\1\n\n+/\n/g;
+#  collapse two or more blank lines into a single one:
+s/\n{3,}/\n\n/g;
+#  see what's left...
+print;

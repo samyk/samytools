@@ -1,0 +1,10 @@
+#!/usr/bin/perl
+
+die "usage: $0 <number of bytes> [data | stdin]\n" unless @ARGV;
+
+my $split = shift(@ARGV);
+for (@ARGV)
+{
+  s/(.{$split})/$1 /g;
+  print "$_\n";
+}

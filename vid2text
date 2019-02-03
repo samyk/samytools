@@ -1,0 +1,17 @@
+#!/usr/bin/perl
+
+use strict;
+
+die "usage: $0 <files>\n" unless @ARGV;
+
+foreach my $f (@ARGV)
+{
+  if ($f !~ /\.(wav|mp3|flac|au)$/)
+  {
+    system("ffmpeg -i '$f' -vn -acodec libmp3lame -ac 2 -ab 160k -ar 48000 '$f.mp3'");
+    $f .= ".mp3";
+  }
+
+  system("curl -X POST --data-binary \@'$f' --user-agent 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/535.7 (KHTML, like Gecko) Chrome/16.0.912.77 Safari/535.7' 'https://www.google.com/speech-api/v1/recognize?client=chromium&lang=ar-QA&maxresults=10'");
+  #system("curl -X POST --data-binary \@$f --user-agent 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/535.7 (KHTML, like Gecko) Chrome/16.0.912.77 Safari/535.7' --header 'Content-Type: audio/x-flac; rate=16000;' 'https://www.google.com/speech-api/v1/recognize?client=chromium&lang=ar-QA&maxresults=10'");
+}

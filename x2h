@@ -1,0 +1,2 @@
+#!/usr/bin/perl -lp
+s/0x//g;s/[, ]//g;

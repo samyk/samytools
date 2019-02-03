@@ -1,0 +1,24 @@
+#!/usr/bin/perl
+#
+# Display all unique paths for a command
+# -samy kamkar 2018/3/3
+
+use strict;
+
+die "usage: $0 <cmd>\n" unless @ARGV;
+foreach my $cmd (@ARGV)
+{
+  my %found;
+
+  my @paths = split /:/, $ENV{PATH};
+  foreach my $path (@paths)
+  {
+    my $fp = "$path/$cmd";
+
+
+    if (-e $fp && !$found{$fp}++)
+    {
+      print -l $fp ? "$fp -> " . readlink($fp) . "\n" : "$fp\n";
+    }
+  }
+}
