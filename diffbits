@@ -16,12 +16,18 @@ die "usage: $0 [-v] <file>\n" if -t STDIN && !@ARGV;
 my (@a, @b, @orig);
 my $next = 0;
 my $ind = 0;
+my @comments;
 
 # read in our data
 while (<>)
 {
   chomp;
 #  s/\s//g;
+
+  # strip comment if present
+  s/(\s*#.*)//;
+  my $comment = $1;
+
   if ($_ eq "") { $next++; next; }
   else
   {
@@ -40,6 +46,7 @@ while (<>)
   }
   my $bits = [split //];
   $next ? push(@b, $bits) : push(@a, $bits);
+  push(@comments, $comment);
 }
 
 # bit length
@@ -110,6 +117,7 @@ sub cmpr
         'reset';
       print color($color) . $bit . color('reset');
     }
+    print shift(@comments);
     print "\n";
   }
 #  print "\n";
