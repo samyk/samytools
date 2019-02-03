@@ -1,42 +1,173 @@
 #!/usr/bin/perl
+#
+# convert 8051 asm to perl
+#
+# -samy kamkar
 
 use strict;
-my %xram, %iram;
+my (@RAM, $A, $R0, $R1, $R2, $R3, $R4, $R5, $R6, $R7);
+my $asm;
+my $width = 30;
+#my (%xram, %iram, %ram, %reg);
 
-sub mov
-{
-	my ($dst, $src) = @_;
-	$ram{$dst} = $src;
-}
-
+=cut
 my $c = '8051';
 my %i = (
 	'8051' => {
+	  'inc' => \&inc,
 		'mov' => \&mov,
+		'clr' => \&clr,
+		'add' => \&add,
 	},
 );
+=cut
 
 die "converts IDA ASM output into perl for testing\n\n" .
 	"usage: $0 <file>\n" unless @ARGV;
 
 my $file = shift;
 open(F, "<$file") || die "Can't read $file: $!";
-while (<F>)
-{
-	s/^code:(\w+)\s+//;
-	my $addy = $1;
-	s/\s+;.*//;
-
-	if (/^(\w+)(?:\s+(\S.*))$/)
-	{
-		my $func = $1;
-		my @params = split(/\s*,\s*/, $2);
-		print "&$func(@params)\n";
-		$i{$c}{$func}(@params);
-	}
-	else
-	{
-		print "Whack: $_";
-	}
-}
+my @lines = <F>;
 close(F);
+
+
+print "#!/usr/bin/perl\n";
+# start at line 0
+process(0);
+
+sub process
+{
+  my $start = shift;
+  print STDERR "# Processing line $start\n";
+  for (my $i = $start; $i < @lines; $i++)
+  {
+    $_ = $lines[$i];
+    s/[ \t]+/ /g;
+    $asm = $_;
+    #print STDERR "$i: $_";
+    s/^code:(\w+)\s+//;
+    my $addy = $1;
+    s/\s+;.*//;
+
+    if (/^(\w+)(?:\s+(\S.*))$/)
+    {
+      my $func = $1;
+      my $vars = $2;
+      #print "&$func($2); # ";
+      my @params = map { data($_) } split(/\s*,\s*/, $vars);
+      eval {
+        no strict "refs";
+        &{$func}(@params)
+        #$i{$c}{$func}(@params);
+      };
+      if ($@) { die "&$func($vars)" }
+      #print "\n";
+    }
+    elsif (/^(\w+):\s*$/)
+    {
+      doc("$1:", 1);
+#      print "&$1 = sub { process($i+1) };\n";
+#      $i{$c}{$1} = sub { process($i+1) };
+    }
+    else
+    {
+      print "Whack: $_";
+    }
+  }
+}
+
+# convert data to usable perl data
+sub data
+{
+  my $data = shift;
+
+  # ignore subs
+  return $data if $data =~ /^code_/;
+
+	# hex to decimal
+	$data =~ s/^#0x(\w+)$/hex($1)/e;
+
+	# decimal
+	$data =~ s/^#(\d+)$/$1/e;
+
+	# register to variable
+  $data = "\$$data" if $data =~ /^[a-z]/i;
+
+  # ram to address
+  $data =~ s/RAM_(\w+)/RAM[0x$1]/;
+
+  # direct addressing
+  $data =~ s/^\@(.*)/\$RAM[\$$1]/;
+
+  return $data;
+}
+
+sub doc
+{
+  my $code = shift;
+  $code .= ';' unless shift;
+	printf("%-${width}s # $asm", $code);
+	#eval($code);
+}
+
+sub clr { $_[0] =~ s/\.(\d+)// ? doc("$_[0] &= ~(1 << $1)") : doc("$_[0] = 0") } # XXX most significant or least?
+sub mov { doc("$_[0] = $_[1]") }
+sub anl { doc("$_[0] &= $_[1]") } # XXX: need to handle overflow
+sub add { doc("$_[0] += $_[1]") } # XXX: need to handle overflow
+sub inc { doc("$_[0]++") } # XXX: need to handle overflow
+sub cjne { doc("goto $_[2] if $_[0] != $_[1]") } # compare and jump if not equal
+sub lcall { doc("&$_[0]") }
+sub ljmp { doc("goto $_[0]") }
+
+print "\n\n";
+
+=cut
+print "#" x 70;
+print "\n";
+
+print "\$A = $A\n";
+foreach my $reg (0 .. 7)
+{
+  print "\$R$reg = " . eval("\$R$reg") . "\n";
+}
+
+print "#   ";
+printf("%3s ", $_) for 0 .. 9, "A" .. "F";
+print "\n";
+foreach my $row (0 .. 7)
+{
+  print "# $row:";
+  foreach my $reg (0 .. 15)
+  {
+    printf("%3s ", $RAM[$row*16 + $reg]);
+  }
+  print "\n";
+}
+=cut
+
+print << "EOF";
+
+use Data::Dumper;
+#print Dumper(\@RAM);
+print "#   ";
+printf("%3s ", \$_) for 0 .. 9, "A" .. "F";
+print "\\n";
+foreach my \$row (0 .. 7)
+{
+  print "# \$row:";
+  foreach my \$reg (0 .. 15)
+  {
+    printf("%3s ", \$RAM[\$row*16 + \$reg]);
+  }
+  print "\n";
+}
+print "\\\$A = \$A;\\n";
+print "\\\$R0 = \$R0;\\n";
+print "\\\$R1 = \$R1;\\n";
+print "\\\$R2 = \$R2;\\n";
+print "\\\$R3 = \$R3;\\n";
+print "\\\$R4 = \$R4;\\n";
+print "\\\$R5 = \$R5;\\n";
+print "\\\$R6 = \$R6;\\n";
+print "\\\$R7 = \$R7;\\n";
+EOF

@@ -661,6 +661,7 @@ print STDERR "PWD: $pwd\n";
 print STDERR "\n";
 $uid = uc $uid;
 #print STDERR "amiitool -d -k ~/Code/amiibo/key_retail.bin -i $input -o $input.decrypted\n";
+$input =~ s/\....$//;
 print STDERR "hf mf eload u $input\n";
 print STDERR "hf 14a sim t 7 u $uid\n";
 

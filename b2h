@@ -1,9 +1,21 @@
-#!/usr/bin/perl -l
+#!/usr/bin/perl
 
 my $x = shift @ARGV if $ARGV[0] eq "-x";
 
-foreach (@ARGV)
+# no data piped in, use file
+if (-t STDIN)
 {
-	s/(.{8})/($x ? "\\x" : "") . unpack("H2", pack("B8", $1))/eg;
-	print;
+  foreach (@ARGV)
+  {
+    s/(.{8})/($x ? "\\x" : "") . unpack("H2", pack("B8", $1))/eg;
+    print;
+  }
+}
+else
+{
+  while (<>)
+  {
+    s/(.)/unpack"H2", $1/egs;
+    print;
+  }
 }
