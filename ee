@@ -1,0 +1,101 @@
+#!/usr/bin/perl
+
+use strict;
+
+# chip => { #_of_args => [[qw/Inputs Outputs/], sub { calculation }]}
+my %expr = (
+  parallel_res => { '*' => [[qw/R/], sub { my $tmp = 0; map { $tmp += (1/$_) } @_; 1/$tmp } ]},
+  #series_res   => { '*' => [[qw/R/], sub { my $tmp = 0; map { $tmp += (1/$_) } @_; return 1/$tmp } ]},
+  voltage_div => {
+    3 => [ [qw/Vin R1 R2 Vout/],
+      sub { $_[0] * ($_[2] / ($_[1] + $_[2])) } ]},
+  lm317 => {
+    2 => [ [qw/R1 R2 Voltage/],
+      sub { 1.25 * ($_[1] / $_[0] + 1) }],
+    1 => [ [qw/Voltage R1 R2/],
+      sub { (240, ($_[0] / 1.25 - 1) * 240) }],
+  },
+  _uf => { 1 => [ [qw/uF nF pF/], sub { ($_[0] * 1e3, $_[0] * 1e6) } ] },
+  _nf => { 1 => [ [qw/nF uF pF/], sub { ($_[0] / 1e3, $_[0] * 1e3) } ] },
+  _pf => { 1 => [ [qw/pF uF nF/], sub { ($_[0] / 1e6, $_[0] / 1e3) } ] },
+);
+
+# get function, conversion, args
+my ($fn, $conv, @args) = handle_args(@ARGV);
+
+sub handle_args
+{
+  my $conv = lc shift;
+  my ($end) = ($conv =~ /([a-z]+)$/i);
+  if ($expr{"_$end"})
+  {
+    $conv =~ s/^(.*)$end/_$end/;
+    unshift(@_, $1);
+  }
+
+  my @args;
+  foreach my $arg (@_)
+  {
+    push @args, ($arg =~ /^(.*)x(\d+)$/ ? ($1) x $2 : $arg);
+  }
+
+  my $fn = $expr{$conv}{@args} || $expr{$conv}{'*'};
+  return ($fn, $conv, @args);
+}
+
+usage() if !$fn;
+my ($txt, $sub) = @{$fn};
+push @args, &$sub(@args);
+foreach my $i (0 .. $#args)
+{
+  # conversion or calculate
+  print ($conv =~ /^_/ ? "$args[$i]$txt->[$i]\n" : $txt->[$i] . ": $args[$i]\n");
+}
+exit;
+
+sub usage
+{
+
+  die "usage: $0 <arg> [opts]
+
+XuF                 # converts 'X'uF to nF/pF
+voltage_div V R1 R2 # get voltage from voltage divider (R2 to gnd)
+parallel_res R1 R2  # get total resistance of parallel resistors
+series_res R1 R2    # get total resistance of series resistors
+lm317 V             # calculate R1 and R2 to produce voltage
+lm317 R1 R2         # voltage created from R1 and R2
+";
+
+}
+=cut
+
+# LM217/LM317 adjustable voltage regulator
+if ($arg eq 'lm317' && @ARGV == 1)
+{
+  my $v = shift;
+  my $r1 = 240;
+  my $r2 = ($v / 1.25 - 1) * $r1;
+  print "R1: $r1\nR2: $r2\nVoltage: ${v}V\n";
+}
+elsif ($arg eq 'lm317' && @ARGV == 2)
+{
+  my ($r1, $r2) = @ARGV;
+  my $v = 1.25 * ($r2 / $r1 + 1);
+  print "R1: $r1\nR2: $r2\nVoltage: ${v}V\n";
+}
+elsif ($arg =~ /^(\d+|\d*\.\d+|\d+\.\d*)(u|n|p)?f$/i)
+{
+  my ($num, $unp) = ($1, lc($2));
+  my $uf;
+  $uf = $num/1e3 if $unp eq "n";
+  $uf = $num/1e6 if $unp eq "p";
+  my $nf = $uf * 1000;
+  my $pf = $nf * 1000;
+  print "${uf}uF\n";
+  print "${nf}nF\n";
+  print "${pf}pF\n";
+}
+else
+{
+  usage();
+}
