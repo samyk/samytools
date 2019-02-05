@@ -26,34 +26,65 @@ This is a collection of simple but effective tools to use on the command line to
 **all** - loop a command over a list of files
 `all 'tar -zxvf FILE' *tgz`
 
-**ana** -
+**ana** - 
 **arduino** -
-**asm** -
-**asm2pl** -
-**avg** -
+
+**asm** - compiles, links and executes .asm file via `nasm`
+`asm file.asm`
+
+**asm2pl** - convert 8051 asm to perl
+`asm2pl <file>`
+
+**avg** - Averages numbers
+`avg <numbers> [NUMBERxTIMES] [...]`
+
 **b2h** -
-**b64** -
-**baud** -
+
+**b64** - Decodes or encodes b64
+`b64 <-d | -e> [data | STDIN]`
+
+**baud** - Determines Baudrate based on values.
+`baud <bit width[ums]> [bit width...]`
+
 **bl** -
 **ccchanbw** -
 **ccdeviatn** -
 **ccdrate** -
 **ccfreq** -
 **char** -
-**conv** -
-**cpu** -
-**de_bruijn** -
+
+**conv** - Media file conversion (mp4, FLV, mov, AIF, flac, mp3, jpg, png, gif, bmp)
+`conv <from> <to>`
+
+**cpu** - Unload OSX Crashplan
+`cpu`
+
+**de_bruijn** - De Bruijn Sequence Generator
+`de_bruijn <alpha> <nums>`
+
 **desktopinfo** -
-**diffbits** -
-**diffdir** -
-**disable_swap** -
+
+**diffbits** - Diff two equal length (per row) sets of binary data
+`diffbits <1> <2>`
+
+**diffdir** - Diff two directories by comparing filenames rather than contents
+`diffdir <1> <2>`
+
+**disable_swap** - Disables OSX dynamic_pager and removes vm/swapfile
+`disable_swap`
+
 **dos2unix** -
 **ds** -
 **exp** -
-**g** -
-**gcode-xbox** -
 
-**hex2bin** -
+**g** - grep++
+`g [files] [-aoRz] [-n <file match>] [-i=file] [-e=file] [-options] <match> [-v !match] [-x <cmd, eg ls -lh>]`
+
+**gcode-xbox** - control Grbl-based CNC machine (Carvey, X-Carve, etc) from an Xbox controller
+`gcode-xbox [/dev/cu.GRBL_SERIAL_PORT]`
+
+**hex2bin** - convert intel hex file to binary
+`hex2bin <file>`
 
 **ip** - list IPv4 addresses, interface name and default gateway
 `ip` # list all IPs, interfaces, and gateway
@@ -65,35 +96,57 @@ This is a collection of simple but effective tools to use on the command line to
 `ipfwd 5 10` # enable for 5 seconds, disable for 10 seconds, enable on exit
 
 **onchange** - run a command whenever a file/directory changes
-`onchange . rsync -av ./ remote.com:project
+`onchange . rsync -av ./ remote.com:project`
 
-**pb2url** -
+**pb2url** - 
 **pi** -
-**pm3cs8** -
+
+**pm3cs8** - Convert proxmark3 trace to cs8 (complex int8/hackrf fmt) for inspectrum
+`pn9 <pm3.trace/file.wav>`
+
 **pmi** -
-**pn9** -
-**rtl** -
-**same** -
+**pn9** - 
+
+**rtl** - make listening/saving data from rtl-sdr or hackrf faster
+`rtl -f 314M -M raw -s 2000000 out.raw`
+
+**same** - look for files that are identical (quickly)
+`same [-e match-regexp] [-v ignore-regexp] <dir> [...]`
+
 **sdi** -
 **sdr** -
-**serialsniff** -
+
+**serialsniff** - (OSX) Sniffs a serial Connection. Prints all unprintable characters!
+`serialsniffer <serial device>`
+
 **sik** -
-**siteinfo** -
-**spec** -
-**strace** -
+**siteinfo** - 
+
+**spec** - spectrum analyzer (gpu accelerated)
+`spec <input>`
+
+**strace** - dtrace wrapper
+`strace [-acdefholLs] [-t syscall] { -p PID | -n name | command }`
+
 **teensy** -
 **testpb** -
 **timer** -
 **tm** -
 **unm** -
-**unz** -
+
+**unz** - Runs lzma on multiple files
+`unz <file1> <file2> `
+
 **ur** -
 **url_sniff** -
 **watch** -
 **whiten** -
-**wx** -
-**xor** -
 
+**wx** - wget's and unpacks files
+`wx <url>`
+
+**xor** - XOR Encode/Decode
+`xor [-d | -x] <file1 | data1> <file2 | data2>`
 
 **rtl** - uses rtl\_fm or hackrf\_fm to listen to a frequency, with a default of AM modulation and a high sample rate.
 
