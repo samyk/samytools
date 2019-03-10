@@ -60,6 +60,9 @@ find . | g txt$ -x ls -lh
 
 my $grep = '/opt/local/libexec/gnubin/grep'; # /opt/local/bin/grep
 use strict;
+use Term::ANSIColor;
+# XXX make this configurable
+my $MAXLEN = 150; # max bytes to print in a line to avoid long lines from showing entirely
 die "usage: $0 [files] [-Nao] [-n <file match>] [-i=file] [-e=file] [-options] <match> [-v !match] [-x <cmd, eg ls -lh>]\n" unless @ARGV;
 #my $DEFAULTS = "-I";
 
@@ -201,7 +204,7 @@ if (length($no))
     (my $tmp = $line) =~ s/\e\[(?:\d+(?:;\d+)?)?m|\e\[K//g;
     if (@run)
     {
-      system(@run, $line);
+      run(@run, $line);
     }
     else
     {
@@ -215,11 +218,65 @@ else
   if (@run)
   {
     my @out = map { chomp; $_ } `@ARGV`;
-    system(@run, @out);
+    run(@run, @out);
     #map { chomp; system(@run, $_) } `@ARGV`;
   }
   else
   {
-    system(@ARGV);
+    run(@ARGV);
+  }
+}
+
+# handle long lines
+sub run
+{
+  #system(@_);return;
+
+  my ($cmd, @args) = @_;
+  my $match = $args[-1];
+
+  open(GREP, "-|", $cmd, @args) || die "Can't run `$cmd @args`: $!";
+
+  # check for case insensitivity
+  $match = "((?i)$match)" if grep { $_ eq "-i" } @args;
+
+  # grab 3 extra bytes of ansicolor after :
+  my $colorbytes = $stdout ? ".{7}" : "";
+
+  while (<GREP>)
+  {
+    my $d = $_;
+    if (length($d) > $MAXLEN)
+    {
+      my $nl = 0;
+
+      $d =~ s/^(.*?.:$colorbytes)//;
+      print $1;#."--";
+
+      while ($d =~ s/^(.*?)(.{0,$MAXLEN})($match)(.{0,$MAXLEN})//s)
+      {
+        my ($extra, $pre, $m, $post) = ($1, $2, $3, $4);
+        print colored("<...>", 'cyan') if $extra;
+        #print "(EXTRA=$extra)";
+        print $pre;
+        print $m;
+        if ($post =~ /$match/)
+        {
+          $d = $post . $d;
+          pos($d) = 0;
+        }
+        else
+        {
+          print $post;
+        }
+        $nl++ if (($pre . $m . $post) =~ /\n/);
+      }
+      print colored("<...>", 'cyan') if $d;
+      print "\n" if !$nl;
+    }
+    else
+    {
+      print;
+    }
   }
 }
