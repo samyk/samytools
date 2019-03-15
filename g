@@ -238,24 +238,29 @@ sub run
   open(GREP, "-|", $cmd, @args) || die "Can't run `$cmd @args`: $!";
 
   # check for case insensitivity
-  $match = "((?i)$match)" if grep { $_ eq "-i" } @args;
+  $match = "(?:(?i)$match)" if grep { $_ eq "-i" } @args;
 
   # grab 3 extra bytes of ansicolor after :
   my $colorbytes = $stdout ? ".{7}" : "";
+  #print "cb=$colorbytes\n";
 
   while (<GREP>)
   {
     my $d = $_;
+    #print "d=$d\n";
     if (length($d) > $MAXLEN)
     {
       my $nl = 0;
 
+      # grab/print file name
       $d =~ s/^(.*?.:$colorbytes)//;
-      print $1;#."--";
+      print $1;
+      #print " cb=$colorbytes 1=$1\n";
 
       while ($d =~ s/^(.*?)(.{0,$MAXLEN})($match)(.{0,$MAXLEN})//s)
       {
         my ($extra, $pre, $m, $post) = ($1, $2, $3, $4);
+        #print "e=$extra p=$pre m=$m($match) P=$post\n";
         print colored("<...>", 'cyan') if $extra;
         #print "(EXTRA=$extra)";
         print $pre;
