@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/opt/local/bin/perl
 
 use bignum;
 
@@ -44,7 +44,8 @@ my $VERSION = "0.42";
 #
 use Term::ReadLine;
 my $term = Term::ReadLine->new('3');
-my $OUT = $term->OUT || \*STDOUT;
+#my $term;
+my $OUT = (($term && $term->OUT) || \*STDOUT);
 
 my $baseconv = shift(@ARGV);
 my @values = @ARGV;
@@ -77,9 +78,16 @@ unless ($baseconv || $baseconv =~ /^calc/i) {
   $prompt .= "[" x ($parens * -1);
   $prompt .= "> ";
 
-  #chomp($data .= <STDIN>);
-  chomp($data = $term->readline($prompt));
-  $term->addhistory($data) if $data =~ /\S/;
+  if ($term)
+  {
+    chomp($data = $term->readline($prompt));
+    $term->addhistory($data) if $data =~ /\S/;
+  }
+  else
+  {
+    print $prompt;
+    chomp($data .= <STDIN>);
+  }
   $parens = ($data =~ tr|(||) - ($data =~ tr|)||);
   if ($data =~ /^\s*(?:help|\?)\s*$/mi) {
    &help();
