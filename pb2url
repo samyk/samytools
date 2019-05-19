@@ -22,7 +22,7 @@ if ($ARGV[0] ne "-F")
 }
 
 my $SLEEP = 0.3;
-my $URL = "https://samy.pl/s/";
+my $URL = "https://samy.pl/";
 
 use strict;
 
@@ -38,11 +38,11 @@ while (1)
 #    close F;
   }
 
-  if ($url =~ m|^https://www.dropbox.com/s/(.*?)/(.*?)\?dl=0$|)
+  if ($url =~ m|^https://www.dropbox.com/(sh?)/(.*?)/(.*?)\?dl=0$|)
   {
-    my ($rand, $file) = ($1, $2);
+    my ($pre, $rand, $file) = ($1, $2, $3);
     $file =~ s/Screenshot.*(\..*)/ss$1/;
-    my $nurl = $URL . "$rand/$file";
+    my $nurl = $URL . "$pre/$rand/$file";
     system("echo '$nurl' | pbcopy");
 #    print STDERR "Copied $nurl\n";
   }
