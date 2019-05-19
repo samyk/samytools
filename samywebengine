@@ -1,0 +1,92 @@
+#!/usr/bin/perl
+# 
+# by samy
+# framework for sending stuff to sites.
+#
+#########################################################
+
+# todo:
+# pre-login (eg, twitter)
+# support single vs multiple data in conf
+# threads!
+# timeouts
+# different post based off of search data expression
+# if timeout happens on search, retry
+## ability to have message_fail_wait_regexp and message_fail_wait (You may only contact a maximum of )
+## don't overwrite existing p#.htmls
+## log issues, e.g., message verifies that failed and page #
+### log number of messages successfully sent
+
+################################################################################################
+################################################################################################
+
+use lib "/Volumes/~.";
+use lib "/Volumes/~./web";
+use samyweb;
+use Data::Dumper;
+
+die "usage: $0 <conf> [1 (dont message)]\n" unless -e $ARGV[0];
+
+# get our params from conf file
+my $f8 = samyweb->new($ARGV[0]);
+
+# first login
+my @html = $f8->login();
+
+# now search people
+my $searches = 0;
+my $max_searches = $f8->p(search_max);
+
+while (my @data = $f8->search())
+{
+	# go through each person on the page
+	foreach my $user (@data)
+	{
+		$f8->p(SEARCH, $user, 1);
+
+		# we're going to send, store it and see if we've already sent to this person
+		my $sent = $f8->sentto($user);
+
+		if ($sent)
+		{
+			$f8->t("!!! Already sent to " . join(", ", @{$user}) . " -- SKIPPING!");
+			next;
+		}
+		else
+		{
+			$f8->t("Found user " . join(", ", @{$user}));
+		}
+		
+		# overwrite our search parameters when testing
+		if ($f8->p(test_message))
+		{
+			$f8->p(SEARCH, [ split(/&/, $f8->p(test_message)) ], 1);
+		}
+		
+		# don't send messages if testing
+		next if $ARGV[1];
+
+		# do a post search in case we're missing info
+		my $post_search = $f8->post_search();
+		$f8->p(POST_SEARCH, $post_search, 1);
+		my $post_post_search = $f8->post_post_search();
+		$f8->p(POST_POST_SEARCH, $post_post_search, 1);
+
+		# message the biatch
+		my $html = $f8->message($user);
+
+		$f8->t();
+	}
+	
+	# exit if we've reached the number of max searches
+	if (++$searches == $max_searches)
+	{
+		$f8->t("Hit max searches of $max_searches", 'bold yellow');
+		last;
+	}
+}
+print "\n";
+
+exit;
+
+END { print "\n" }

@@ -1,0 +1,19 @@
+#!/usr/bin/perl
+
+use lib '/b/';
+use samyweb;
+use strict;
+no strict 'subs';
+
+die "usage: $0 <url> [post]\n" unless @ARGV;
+my ($file, $post) = @ARGV;
+if (!$post)
+{
+	chomp(my $post = <STDIN>);
+}
+my $s = samyweb->new();
+
+my $html = $s->get({ url => $file, form => $post });
+print STDERR $@;
+print $html;
+print "\n";
