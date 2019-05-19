@@ -42,7 +42,9 @@ sub cleanup
     foreach my $row (@data)
     {
       # parse offset
-      if ($row =~ /^([a-f\d]+)(?:\s+([a-f\d][a-f\d\s]+))?(?:\|.*\|\s*)?$/i)
+      if ($row =~ /^\s*0x([a-f\d]+):\s+((?:[a-f\d]{2}[a-f\d]{0,2}\s?){1,8})/ ||
+          $row =~ /^\s*()((?:[a-f\d]{2}\s*){1,16})/ ||
+          $row =~ /^\s*(?:0x)?([a-f\d]+):?(?:\s+([a-f\d][a-f\d\s]+))?(?:\|.*\|\s*)?$/i)
       {
         my ($offset, $rest) = ($1, $2);
         $rest =~ s/\s//g;
@@ -61,6 +63,10 @@ sub cleanup
         $lastoff = hex($offset);
         $lastlen = length($rest) / 2;
       }
+      # tcpdump, ignore line
+      elsif ($row =~ /^\d+:\d+:\d+\.\d+ /) { }
+      # ngrep, ignore line
+      elsif ($row =~ /^[A-Z] \d+\.\d+\.\d+\.\d+/) { }
       # no offset
       else
       {
@@ -77,7 +83,7 @@ sub cleanup
   $newdata =~ s/\s//g;
   if ($newdata =~ /[^\da-f]/i)
   {
-    die "Data isn't hex!\n";
+    die "Data isn't hex! $newdata\n";
   }
   $newdata =~ s/(..)/pack "H2", $1/eg;
 
