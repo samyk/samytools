@@ -59,24 +59,26 @@ find . | g txt$ -x ls -lh
 =cut
 
 my $grep = '/opt/local/libexec/gnubin/grep'; # /opt/local/bin/grep
+$|++;
+
 use strict;
 use Term::ANSIColor;
 # XXX make this configurable
-my $MAXLEN = 150; # max bytes to print in a line to avoid long lines from showing entirely
+my $MAXLEN = 500; # max bytes to print in a line to avoid long lines from showing entirely
 die "usage: $0 [files] [-Nao] [-n <file match>] [-i=file] [-e=file] [-options] <match> [-v !match] [-x <cmd, eg ls -lh>]\n" unless @ARGV;
 #my $DEFAULTS = "-I";
 
 my ($no, $noi, $stdin, $matchfiles, $binary, $color);
 
-# if no piped in data (g ...), recursively crawl
-if (-t STDIN)
-{
-	$stdin = "r";
-}
-# piped
-else
+my $piped = !-t STDIN;
+if ($piped)
 {
   $binary = 1;
+}
+# if no piped in data (g ...), recursively crawl
+else
+{
+	$stdin = "r";
 }
 
 my $stdout = -t STDOUT;
@@ -230,7 +232,12 @@ else
 # handle long lines
 sub run
 {
-  #system(@_);return;
+  # TODO: add support for handling oversized piped data
+  if ($piped)
+  {
+    system(@_);
+    return;
+  }
 
   my ($cmd, @args) = @_;
   my $match = $args[-1];
