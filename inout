@@ -1,0 +1,30 @@
+#!/usr/bin/perl
+#
+# Extract data from file starting at X until end/position Y/Y bytes
+#
+# -samy kamkar
+
+die "usage: $0 <file> <start> [-p (position) end-byte | bytes]\n" unless @ARGV >= 2;
+
+my $MAXBYTES = 2 ** 20;
+my $file = shift;
+my $start = shift;
+my $bytes = pop;
+$bytes -= $start if $ARGV[0] eq "-p";
+
+open(F, "<$file") || die "can't open $file: $!";
+seek(F, $start, 0);
+if ($bytes)
+{
+  my $pos = 0;
+  while ($pos < $bytes)
+  {
+    my $read = $bytes - $pos > $MAXBYTES ? $MAXBYTES : $bytes - $pos;
+    $pos += read(F, $data, $read);
+    print $data;
+  }
+}
+else
+{
+  print while <F>;
+}
