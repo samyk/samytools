@@ -105,7 +105,7 @@ sub email
 	my @cc = @_;
 
 	my $from = 'skamkar@gmail.com';
-	use Net::SMTP::TLS;
+	eval("use Net::SMTP::TLS");
 
 	my $pass = cat("/Users/samy/Documents/.skamkar");
 	$pass =~ s/#.*//g;
@@ -227,6 +227,11 @@ sub cat
 	close(F);
 
 	return wantarray ? @data : join "", @data;
+}
+
+sub scat
+{
+  return map { chomp; $_ } cat(@_);
 }
 
 # return sqlite object
