@@ -7,8 +7,13 @@ use strict;
 use File::Find;
 
 die "finds files that are identical (quickly)\nby samy kamkar
-usage: $0 [-e match-regexp] [-v ignore-regexp] <dir> [...]\n" unless @ARGV;
-my ($match, $ignore);
+usage: $0 [-R (REMOVES ALL BUT FIRST ONE)] [-e match-regexp] [-v ignore-regexp] <dir> [...]\n" unless @ARGV;
+my ($match, $ignore, $rm);
+if ($ARGV[0] eq "-R")
+{
+	shift;
+	$rm = 1;
+}
 if ($ARGV[0] eq "-e")
 {
 	shift;
@@ -35,16 +40,25 @@ foreach my $size (grep { @{$files{$_}} > 1 } keys %files)
 
 		my $md5 = md5($file);
 		push @{$md5{$md5}}, $file;
+
 	}
 }
 
 # more than one file with same md5
 foreach my $md5 (grep { @{$md5{$_}} > 1 } keys %md5)
 {
+  my $f = 1;
 	# print all files
 	foreach my $file (@{$md5{$md5}})
 	{
-		print "$md5: $file";
+	  my $didrm = "";
+		if (!$f && $rm)
+    {
+      unlink($file);
+      $didrm = " (REMOVED)";
+    }
+    $f = 0;
+		print "$md5: $file$didrm";
 		if (-l $file) { print " (symlink)" }
 		print "\n";
 	}
