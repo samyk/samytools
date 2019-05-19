@@ -1,10 +1,10 @@
 #!/usr/bin/perl
 #
-# output local ip interfaces (all by default)
+# output local mac addresses (all by default)
 #
 # -samy kamkar
 #
-# usage: ip [iface | 'gw']
+# usage: mac [iface | 'gw']
 
 my $eth = lc shift;
 if (!$eth || $eth eq 'gateway' || $eth eq 'gw')
@@ -15,12 +15,12 @@ if (!$eth || $eth eq 'gateway' || $eth eq 'gw')
 		{
 			if ($eth eq 'gw' || $eth eq 'gateway')
 			{
-				print "$1\n";
+				print arpmac($1), "\n";
 				exit;
 			}
 			else
 			{
-				print "gateway: $1\n";
+				print "gateway: ", arpmac($1), "\n";
 				last;
 			}
 		}
@@ -34,7 +34,7 @@ foreach (`/sbin/ifconfig -a`)
 	{
 		$card = $1;
 	}
-	elsif (/inet (\S+)/)
+	elsif (/ether (\S+)/)
 	{
 		if ($eth && lc $card eq $eth)
 		{
@@ -45,4 +45,13 @@ foreach (`/sbin/ifconfig -a`)
 			print "$card: $1\n";
 		}
 	}
+}
+
+sub arpmac
+{
+  foreach (`arp -na`)
+  {
+    my @F = split;
+    return $F[3] if $F[1] eq "($_[0])";
+  }
 }
