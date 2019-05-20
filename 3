@@ -50,6 +50,7 @@ my $OUT = (($term && $term->OUT) || \*STDOUT);
 my $baseconv = shift(@ARGV);
 my @values = @ARGV;
 my %namespace;
+my $maxlen = 0;
 
 my %conv = (
 	"b" => "bin", # binary
@@ -121,7 +122,8 @@ $baseconv =~ /^(.)(.)$/;
 my ($first, $second) = ($conv{$1} . "2bin", "bin2" . $conv{$2});
 
 foreach my $value (@values) {
- print &{$second}(&{$first}($value)) . "\n";
+  $value = eval($value) if $value =~ /^\d[\d\+\-\.\/\*\^\&\|\!\(\)]*$/;
+  print &{$second}(&{$first}($value)) . "\n";
 }
 exit 0;
 
@@ -349,7 +351,9 @@ sub operate {
 
 sub bin2bin {
  my $val = shift;
- $val =~ s/^0*//;
+ $val =~ s/^0*((?:.{8})+)$/$1/;
+ $maxlen = length($val) if length($val) > $maxlen;
+ $val = (("0" x ($maxlen-length($val))) . $val);# if (length($val) < $maxlen)
  return $val;
 }
 
@@ -374,7 +378,7 @@ sub dec2bin {
  my $val = pack($dec >= 2**32 ? "Q" : "N", $dec);
  $val = reverse($val) if $dec >= 2**32;
  $val = unpack("B*", $val);
- $val =~ s/^0*//;
+ # $val =~ s/^0*//;
  return $val;
 }
 
