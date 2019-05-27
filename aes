@@ -1,13 +1,15 @@
 #!/usr/bin/perl
-
-#"F8 94 EB F5 45 66 1F DF DE FF E1 12 FC CF 44 91";
+#
+# quick aes encryption/decryption wih hex strings
+# -samy kamkar
 
 use strict;
 use Crypt::OpenSSL::AES;
 
-die "usage: $0 [-d | -e] <0xkey> <0xmessage>\n" unless @ARGV >= 2;
+die "usage: $0 [-a (no \\n)] [-d | -e] <0xkey> <0xmessage>\n" unless @ARGV >= 2;
 
 my $crypt;
+my $nolf = grep { splice(@ARGV, $_, 1) if $ARGV[$_] eq '-a' } 0 .. $#ARGV;
 if ($ARGV[0] eq "-d" || $ARGV[0] eq "-e")
 {
   $crypt = shift;
@@ -26,13 +28,15 @@ if (length($msg) % 16 != 0)
 	$msg .= "\x00" x (16 - (length($msg) % 16));
 }
 
-print length($key).$/;
-print "$key\n";
+#print length($key).$/;
+#print "$key\n";
+
 my $cipher = new Crypt::OpenSSL::AES($key);
 
 my $encrypted = $cipher->encrypt($msg);
 if ($crypt eq "-e") {
-  print unpack("H*", $encrypted) . "\n";
+  print unpack("H*", $encrypted);
+  print "\n" unless $nolf;
 }
 elsif (!$crypt)
 {
@@ -43,12 +47,11 @@ elsif (!$crypt)
 my $decrypted = unpack("H*", $cipher->decrypt($msg));
 if ($crypt eq "-d")
 {
-  print "$decrypted\n";
+  print $decrypted;
+  print "\n" unless $nolf;
 }
 elsif (!$crypt)
 {
   print "Decrypted: " . pack("H*", $decrypted) . "\n";
   print "Decrypted: $decrypted\n";
 }
-#print "Decrypted: " . unpack("H*", $decrypted) . "\n";
-#print "Decrypted: " 
