@@ -1,13 +1,19 @@
 #!/usr/bin/perl
 #
 # Display all unique paths for a command
+# Optionally run a command against all of the paths with -r
 # -samy kamkar 2018/3/3
 
 use strict;
 
-die "usage: $0 <cmd>\n" unless @ARGV;
-foreach my $cmd (@ARGV)
+die "usage: $0 [-r] <cmd> [args to pass if -r]\n" unless @ARGV;
+my $run = $ARGV[0] eq "-r" ? shift : 0;
+
+$run ? find(shift, [@ARGV]) : map { find($_) } @ARGV;
+
+sub find
 {
+  my ($cmd, $args) = @_;
   my %found;
 
   my @paths = split /:/, $ENV{PATH};
@@ -15,10 +21,14 @@ foreach my $cmd (@ARGV)
   {
     my $fp = "$path/$cmd";
 
-
     if (-e $fp && !$found{$fp}++)
     {
       print -l $fp ? "$fp -> " . readlink($fp) . "\n" : "$fp\n";
+      if ($args && -x $fp && !-d $fp)
+      {
+        print STDERR "running: $fp @{$args}\n";
+        system($fp, @{$args});
+    }
     }
   }
 }
