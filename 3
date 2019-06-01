@@ -122,7 +122,7 @@ $baseconv =~ /^(.)(.)$/;
 my ($first, $second) = ($conv{$1} . "2bin", "bin2" . $conv{$2});
 
 foreach my $value (@values) {
-  $value = eval($value) if $value =~ /^\d[\d\+\-\.\/\*\^\&\|\!\(\)]*$/;
+  $value = eval($value) if $value =~ /^\d[\d\+\-\.\/\*\^\&\|\!\(\)]*$/ && $value !~ /^\w+$/; # otherwise 00xx gets treated as octal
   print &{$second}(&{$first}($value)) . "\n";
 }
 exit 0;
