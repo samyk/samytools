@@ -5,9 +5,16 @@
 #
 # -samy kamkar, 7/18/2018
 
-die "usage: $0 <hex string | - | file>\n" unless @ARGV || !-t STDIN;
+use strict;
 
+$|++;
+die "usage: $0 [-vv] <hex string | - | file>\n" unless @ARGV || !-t STDIN;
+
+my $verbose = $ARGV[0] =~ /^-v/ ? shift : 0;
 my $data = shift;
+my $piped;
+my ($lastoff, $lastlen, $newdata);
+
 if (-e $data)
 {
   open(F, "<$data") || die "Can't read $data: $!";
@@ -20,7 +27,13 @@ elsif ($data eq "-")
 }
 elsif (!-t STDIN)
 {
-  $data = join "", <>;
+  $piped = 1;
+  #$data = join "", <>;
+  while (<>)
+  {
+    print "got: $_\n" if $verbose eq "-vv";
+    print pack("H*", parse($_));
+  }
 }
 
 $data = cleanup($data);
@@ -33,46 +46,13 @@ sub cleanup
 
   my @data = split "\n", $data;
 
-  # do we have offset eg from `hexdump`? if so, remove offset
-  my ($lastoff, $lastlen, $newdata);
-
   # ony if 2 or more lines
   if (@data >= 2)
   {
     foreach my $row (@data)
     {
-      # parse offset
-      if ($row =~ /^\s*0x([a-f\d]+):\s+((?:[a-f\d]{2}[a-f\d]{0,2}\s?){1,8})/ ||
-          $row =~ /^\s*()((?:[a-f\d]{2}\s*){1,16})/ ||
-          $row =~ /^\s*(?:0x)?([a-f\d]+):?(?:\s+([a-f\d][a-f\d\s]+))?(?:\|.*\|\s*)?$/i)
-      {
-        my ($offset, $rest) = ($1, $2);
-        $rest =~ s/\s//g;
-        $newdata .= $rest;
-
-        # only test after first row
-        if ($lastoff)
-        {
-          # is our new offset the correct increase of bytes?
-          if (hex($offset) - $lastoff != $lastlen)
-          {
-            $newdata = $data;
-            break;
-          }
-        }
-        $lastoff = hex($offset);
-        $lastlen = length($rest) / 2;
-      }
-      # tcpdump, ignore line
-      elsif ($row =~ /^\d+:\d+:\d+\.\d+ /) { }
-      # ngrep, ignore line
-      elsif ($row =~ /^[A-Z] \d+\.\d+\.\d+\.\d+/) { }
-      # no offset
-      else
-      {
-        $newdata = $data;
-        break;
-      }
+      my $add = parse($row);
+      defined($add) ? $newdata .= $add : return;
     }
   }
   else
@@ -83,9 +63,63 @@ sub cleanup
   $newdata =~ s/\s//g;
   if ($newdata =~ /[^\da-f]/i)
   {
-    die "Data isn't hex! $newdata\n";
+    die "$newdata\n\nData isn't proper hex!\n";
   }
   $newdata =~ s/(..)/pack "H2", $1/eg;
 
   return $newdata;
+}
+
+sub parse
+{
+  my $row = shift;
+  chomp($row);
+
+  # tcpdump, reset offset, ignore line
+  if ($row =~ /^\d+:\d+:\d+\.\d+ /)
+  {
+    print STDERR "$row\n" if $verbose;
+    $lastoff = 0;
+  }
+
+  # ngrep, reset offset, ignore line
+  elsif ($row =~ /^[A-Z] \d+\.\d+\.\d+\.\d+/)
+  {
+    print STDERR "$row\n" if $verbose;
+    $lastoff = 0;
+  }
+
+  # parse offset + data in various tool formats
+  elsif ($row =~ /^\s*0x([a-f\d]+):\s+((?:[a-f\d]{2}[a-f\d]{0,2}\s?){1,8})/i ||
+    $row =~ /^([a-f\d]{8,}) \s+ ( (?:[a-f\d]{2} (?:\s? [a-f\d]{2})? \s+ )+ ) \s+ \|/ix ||
+    $row =~ /^\s*()((?:[a-f\d]{2}\s*){1,16})/i ||
+    $row =~ /^\s*(?:0x)?([a-f\d]+):?(?:\s+([a-f\d][a-f\d\s]+))?(?:\|.*\|\s*)?$/i)
+  {
+    # TODO once a format is found, only use that from then on
+    my ($offset, $rest) = ($1, $2);
+    print "offset=$offset hex=$rest\n" if $verbose eq "-vv";
+    $rest =~ s/\s//g;
+    $row = $rest;
+    #$newdata .= $rest;
+
+    # only test after first row
+    if ($lastoff)
+    {
+      # is our new offset the correct increase of bytes?
+      if (hex($offset) - $lastoff != $lastlen)
+      {
+        print STDERR "bad offset: (0x$offset)" . hex($offset) . " - $lastoff != $lastlen ($row)\n";
+        return undef;
+      }
+    }
+    $lastoff = hex($offset);
+    $lastlen = length($rest) / 2;
+  }
+
+  # no offset
+  else
+  {
+    return undef;
+  }
+  return $row;
 }
