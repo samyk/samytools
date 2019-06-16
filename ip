@@ -7,6 +7,14 @@
 # usage: ip [iface | 'gw']
 
 my $eth = lc shift;
+
+# hostname
+if ($eth =~ /\./)
+{
+  print ((`dig +short $eth`)[0]);
+  exit;
+}
+
 if (!$eth || $eth eq 'gateway' || $eth eq 'gw')
 {
 	foreach (`/usr/sbin/netstat -nr`)
