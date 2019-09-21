@@ -1,0 +1,37 @@
+#!/usr/bin/perl
+#
+# produce file with list of files and directories
+# ordered by size, prepended with + if directory
+# -samyk
+
+my $final = "/du";
+my $tmp1 = "/tmp/du1.txt";
+my $tmp2 = "/tmp/du2.txt";
+
+use strict;
+use Fcntl qw/SEEK_SET/;
+
+system("du -ha / > $tmp1");
+system("sort -S 4G -hr $tmp1 > $tmp2");
+
+open(OUT, ">$tmp1") || die;
+open(DU, "<$tmp2") || die;
+my ($len) = (<DU> =~ /^(\s*\S+\s+)/);
+$len = length($len);
+seek(DU, 0, SEEK_SET);
+while (<DU>)
+{
+  chomp;
+  print OUT (-d substr($_, $len) ? "+$_\n" : " $_\n");
+}
+close(DU);
+unlink($tmp2);
+rename($tmp1, $final);
+
+__DATA__
+#!/bin/sh
+
+du -ha / > /tmp/du.txt
+sort -S 2G -hr /tmp/du.txt > /tmp/du2.txt
+perl -lape'$_=-d"@F[1..$#F]"?"+$_":" $_"'
+rm -rf /tmp/du.txt
