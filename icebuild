@@ -1,0 +1,105 @@
+#!/bin/bash
+
+# -v verbose
+# -u upload only
+
+COMPILE=1
+
+# Parse some command line arguments
+while [ $# -gt 0 ]
+do
+    case "$1" in
+        -u)
+                COMPILE=0
+                shift
+                ;;
+        -v)
+                VERBOSE=1
+                shift
+                ;;
+        -1k)    PCF=icestick.pcf
+                DEV=1k
+                shift
+                ;;
+        -8k)    PCF=ice40hx8k-bb.pcf
+                DEV=8k
+                shift
+                ;;
+        -S)     ICEPROG_ARGS=-S
+                shift
+                ;;
+        *)      PCF=icestick.pcf
+                DEV=1k
+                break
+                ;;
+    esac
+done
+
+# Build with open source tools
+if [ -z "$1" ]
+then
+    echo Usage: build.sh [-v] [-1k] [-8k] [-S] main_name [other .v files]
+    echo Example: ./build.sh demo library.v
+    exit 1
+fi    
+set -e   # exit if any tool errors
+MAIN=$1
+shift
+
+
+if [ "$VERBOSE" == "1" ]
+then
+  echo Unloading Apple FTDI drivers
+  #sudo kextload /Extensions/AppleUSBFTDI.kext/
+  #sudo kextunload -v -b com.apple.driver.AppleUSBFTDI # needed for onboard FTDI
+  sudo kextunload -v -b com.FTDI.driver.FTDIUSBSerialDriver
+
+  if [ "$COMPILE" == "1" ]
+  then
+    echo Using yosys to synthesize design
+    echo "> yosys -p \"synth_ice40 -blif .$MAIN.blif\" $MAIN.v $@"
+    yosys -p "synth_ice40 -blif .$MAIN.blif" $MAIN.v $@
+
+    echo Place and route with arachne-pnr
+    echo "> arachne-pnr -d ${DEV} -p ${PCF} .$MAIN.blif -o .$MAIN.txt"
+    arachne-pnr -d ${DEV} -p ${PCF} .$MAIN.blif -o .$MAIN.txt
+
+    echo Converting ASCII output to bitstream
+    echo "> icepack .$MAIN.txt .$MAIN.bin"
+    icepack .$MAIN.txt .$MAIN.bin
+  fi
+
+  echo Sending bitstream to device
+  echo "> iceprog ${ICEPROG_ARGS} .$MAIN.bin"
+  iceprog ${ICEPROG_ARGS} .$MAIN.bin
+else
+  #echo Unloading Apple FTDI drivers
+  #sudo kextunload -v -b com.apple.driver.AppleUSBFTDI 2>>/dev/null
+  #sudo kextunload -v -b com.FTDI.driver.FTDIUSBSerialDriver 2>>/dev/null
+
+  if [ "$COMPILE" == "1" ]
+  then
+    echo Using yosys to synthesize design
+    yosys -p "synth_ice40 -blif .$MAIN.blif" $MAIN.v $@ >>/dev/null
+
+    echo Place and route with arachne-pnr
+    arachne-pnr -d ${DEV} -p ${PCF} .$MAIN.blif -o .$MAIN.txt >>/dev/null
+
+    echo Converting ASCII output to bitstream
+    icepack .$MAIN.txt .$MAIN.bin >>/dev/null
+  fi
+
+  echo Sending bitstream to device
+  if iceprog ${ICEPROG_ARGS} .$MAIN.bin >>/dev/null ; then
+    echo Done
+  else
+    echo Failed, unloading Apple FTDI drivers
+    #sudo kextload /Extensions/AppleUSBFTDI.kext/
+    #sudo kextunload -v -b com.apple.driver.AppleUSBFTDI >>/dev/null # needed for onboard FTDI
+    sudo kextunload -v -b com.FTDI.driver.FTDIUSBSerialDriver >>/dev/null
+    echo Re-sending bitstream to device
+    iceprog ${ICEPROG_ARGS} $MAIN.bin >>/dev/null
+  fi
+
+fi
+
