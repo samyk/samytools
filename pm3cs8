@@ -59,5 +59,7 @@ sub run_rewrite
   my ($file, @run) = @_;
   s/\$file/$file/ foreach @run;
   print "Running: @run\n";
-  return system(@run);
+
+  my $ret = system(@run);
+  die "Failed: $! ($ret)\ndo you have $run[0] installed?\n" if $ret;
 }
