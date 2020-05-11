@@ -10,7 +10,8 @@ use strict;
 use Term::ANSIColor;
 
 my $verbose = $ARGV[0] eq "-v" ? shift() : 0;
-die "usage: $0 [-v] <file>\n" if -t STDIN && !@ARGV;
+die "usage: $0 [-v] [-h] <file>\n" if -t STDIN && !@ARGV;
+my $hex = $ARGV[0] eq "-h" ? shift(@ARGV) : 0;
 
 # binary set a and b
 my (@a, @b, @orig);
@@ -38,7 +39,7 @@ while (<>)
   if (/^[01\s_]+$/) { }
   elsif (/^[a-f\d\s_]+/i) # hex
   {
-    s/([a-f\d])/unpack("B4", pack("H", $1))/eg;
+    s/([a-f\d])/unpack("B4", pack("H", $1))/ieg if !$hex;
   }
   else # ascii
   {
