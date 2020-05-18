@@ -1,0 +1,64 @@
+#!/usr/bin/perl
+#
+# automatically convert .dxf's to .svg's (typically Fusion 360 DXFs to SVGs for use in Glowforge)
+# requires "dxf2svg" at https://github.com/samyk/samytools
+
+# -samy kamkar 2018/05/17
+#
+my $dxf2svg = "dxf2svg";
+my $DEFAULT_DIR = "$ENV{HOME}/Code/3D";
+
+use strict;
+if ($ARGV[0] eq "-h" || @ARGV > 1)
+{
+  die "usage: $0 [-h] [dir to watch for dxf]\n";
+}
+
+my $dir = shift || $DEFAULT_DIR;
+if (my $p = fork)
+{
+  die "Running in bg! (pid $p)\n";
+}
+close(STDERR);
+close(STDIN);
+close(STDOUT);
+
+
+my %files = map { $_ => mtime($_) } <$dir/*.dxf>;
+
+use Data::Dumper;
+#print Dumper(\%files);
+while (1)
+{
+  foreach my $file (<$dir/*.dxf>)
+  {
+    my $mtime = mtime($file);
+
+    # new file or newer mod time
+    if (!$files{$file})
+    {
+      #print "New file: $file\n";
+      $files{$file} = $mtime;
+      dxf2svg($file);
+    }
+    elsif ($mtime > $files{$file})
+    {
+      #print "Newer mod time: $file\n";
+      $files{$file} = $mtime;
+      dxf2svg($file);
+    }
+  }
+  sleep 1;
+}
+
+sub mtime
+{
+  return (stat($_[0]))[9];
+}
+
+sub dxf2svg
+{
+  my $out = $_[0];
+  $out =~ s/dxf$/svg/;
+  system($dxf2svg, $_[0], $out);
+}
