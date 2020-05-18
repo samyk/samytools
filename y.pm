@@ -1,7 +1,12 @@
+# general reusable functions for perl
+# necessary for some tools at https://github.com/samyk/samytools
+#
+# -samy kamkar :: https://samy.pl
 
 $|++;
 
 use strict;
+no strict 'subs';
 #use lib "/Users/samy/Code/samyweb";
 #use samyweb;
 
@@ -13,8 +18,9 @@ use MIME::Base64 qw(decode_base64 encode_base64);
 #use IO::Socket;
 #use LWP::Simple;
 #use HTML::Parser;
-#use Data::Dumper;
+use Data::Dumper;
 #use HTML::Entities;
+
 
 sub scale
 {
@@ -97,19 +103,21 @@ sub getfile
 	return $file;
 }
 
+# email(subject, body, to, from, gmail pass, [cc ..])
 sub email
 {
 	my $subject = shift;
 	my $body = shift;
 	my $to = shift;
+	my $from = shift;
+	my $pass = shift;
 	my @cc = @_;
 
-	my $from = 'skamkar@gmail.com';
 	eval("use Net::SMTP::TLS");
 
-	my $pass = cat("/Users/samy/Documents/.skamkar");
-	$pass =~ s/#.*//g;
-	$pass =~ s/\n//g;
+  #my $pass = cat("~/.smtppass");
+  #$pass =~ s/#.*//g;
+  #$pass =~ s/\n//g;
 
 	my $mailer = new Net::SMTP::TLS(
 		'smtp.gmail.com',
@@ -171,7 +179,7 @@ sub bdb
 {
 	my ($f, $readonly) = @_;
 
-	use BerkeleyDB;
+	eval("use BerkeleyDB");
 	if ($readonly && !-e $f)
 	{
 		die "BerkeleyDB `$f` does not exist!";
@@ -180,7 +188,7 @@ sub bdb
 	my %h;
 	tie %h, "BerkeleyDB::Hash",
 		-Filename => $f,
-		-Flags    => DB_CREATE
+		-Flags    => BerkeleyDB::DB_CREATE
 	or die "Cannot open file: $! $BerkeleyDB::Error\n" ;
 
 	return \%h;
@@ -214,15 +222,49 @@ sub append
 	close(F);
 }
 
-# cat(filename[, 1 to not fail])
+# readconf(file, don't die on fail, don't interpolate)
+# read config and return hashref
+sub readconf
+{
+  my (%data, $key);
+
+  foreach (cat(@_))
+  {
+    s/\s*#.*//;
+    next if /^\s*$/;
+
+    # [something "hi"]
+    if (/^\s*\[\s*(\S+)?(?:\s+"(.*)")?\s*\]$/)
+    {
+      $key = ($2 ? $data{$1}{$2} : $data{$1}) = {};
+    }
+    elsif (/^\s*(\S+)\s*=\s*(.*)$/)
+    {
+      $key->{$1} = $2;
+    }
+  }
+
+  return \%data;
+}
+
+# interpolate ~
+sub path
+{
+  $_[0] =~ s|^~/|$ENV{HOME}/|;
+  return $_[0];
+}
+
+# cat(filename[, 1 to not fail[, 1 to not interpolate ~]])
 sub cat
 {
-	if (!open(F, "<$_[0]") && !$_[1])
+  my ($dir, $nofail, $nointerp) = @_;
+
+  $dir = $nointerp ? $dir : path($dir);
+	if (!open(F, "<$dir") && !$nofail)
 	{
-		print STDERR "Can't read $_[0]: $!";
+		print STDERR "Can't read $dir: $!";
 		return;
 	}
-#	my $data = join("", <F>);
 	my @data = <F>;
 	close(F);
 
@@ -234,6 +276,33 @@ sub scat
   return map { chomp; $_ } cat(@_);
 }
 
+# return array of hashes/arrays of csv data
+sub csv
+{
+  my ($file, $delim, $noHdr) = @_;
+  $delim = ',' unless length($delim);
+
+  # get lines from file
+  my @lines = scat($_[0]);
+  if ($noHdr)
+  {
+    # return array of array refs, each array ref is a row
+    return map { [ split /$delim/ ] } @lines;
+  }
+
+  # grab our header
+  my @hdr = split /$delim/, shift(@lines);
+  my @return;
+  foreach my $row (@lines)
+  {
+    my @data = split /$delim/, $row;
+    push @return, { map { $hdr[$_] => $data[$_] } 0 .. $#hdr };
+    $return[-1]{_orig} = $row;
+  }
+
+  return @return;
+}
+
 # return sqlite object
 sub sqlite
 {
@@ -242,7 +311,7 @@ sub sqlite
 
 sub dbh
 {
-	use DBI;
+	eval("use DBI");
 	my ($db, $user, $pass, $host, $type, @opts) = @_;
 	$type ||= "mysql";
 
@@ -377,9 +446,16 @@ sub pmi_installed
 	return 0;
 }
 
+# math functions
+use constant PI => 4 * atan2(1, 1);
+sub pi { 355/113 }
+sub asin { atan2($_[0], sqrt(1 - $_[0] * $_[0])) }
+sub acos { atan2( sqrt(1 - $_[0] * $_[0]), $_[0] ) }
+sub tan { sin($_[0]) / cos($_[0])  }
+sub log10 { log($_[0])/log(10) }
 
 # add new functions here   #
-# XXX END OF NEW FUNCTIONS ###
+# XXX END OF NEW FUNCTIONS y.pm ###
 
 
 1;
