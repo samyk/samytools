@@ -13,7 +13,7 @@ die "usage: $0 [-vv] <hex string | - | file>\n" unless @ARGV || !-t STDIN;
 my $verbose = $ARGV[0] =~ /^-v/ ? shift : 0;
 my $data = shift;
 my $piped;
-my ($lastoff, $lastlen, $newdata);
+my ($lastrow, $lastoff, $lastlen, $newdata, $repeat, $rownum, $offsetlen);
 
 if (-e $data)
 {
@@ -75,6 +75,7 @@ sub parse
   my $row = shift;
   chomp($row);
 
+  #print STDERR "$row\n";
   # tcpdump, reset offset, ignore line
   if ($row =~ /^\d+:\d+:\d+\.\d+ /)
   {
@@ -90,36 +91,72 @@ sub parse
   }
 
   # parse offset + data in various tool formats
-  elsif ($row =~ /^\s*0x([a-f\d]+):\s+((?:[a-f\d]{2}[a-f\d]{0,2}\s?){1,8})/i ||
-    $row =~ /^([a-f\d]{8,}) \s+ ( (?:[a-f\d]{2} (?:\s? [a-f\d]{2})? \s+ )+ ) \s+ \|/ix ||
+  elsif (
+    $row =~ /^([a-f\d]{8}) ((?: [a-f\d]{2}){1,16})   /i ||
+    $row =~ /^([a-f\d]{8,}) \s+ ( (?:[a-f\d]{2} (?:\s? [a-f\d]{2})? \s+ )+ ) \s* \|/ix ||
+    $row =~ /^\s*0x([a-f\d]+):\s+((?:[a-f\d]{2}[a-f\d]{0,2}\s?){1,8})/i ||
     $row =~ /^\s*()((?:[a-f\d]{2}\s*){1,16})/i ||
     $row =~ /^\s*(?:0x)?([a-f\d]+):?(?:\s+([a-f\d][a-f\d\s]+))?(?:\|.*\|\s*)?$/i)
   {
     # TODO once a format is found, only use that from then on
     my ($offset, $rest) = ($1, $2);
-    print "offset=$offset hex=$rest\n" if $verbose eq "-vv";
     $rest =~ s/\s//g;
     $row = $rest;
     #$newdata .= $rest;
 
-    # only test after first row
-    if ($lastoff)
+    # if this is first row
+    if (!$rownum)
     {
+      $offsetlen = length($offset);
+    }
+
+    # handle case where last line has offset but no data
+    if (length($offset) == 0 && $offsetlen && length($row) == $offsetlen)
+    {
+      $offset = $row;
+      $row = "";
+    }
+
+    print STDERR "offset=$offset hex=$rest lastoff=$lastoff lastlen=$lastlen r=$repeat\n" if $verbose eq "-vv";
+
+    # if we have an offset, verify future ones are correct
+    if ($rownum && defined $lastoff)
+    {
+      # are we repeating?
+      if ($repeat)
+      {
+        my $times = ((hex($offset) - $lastoff) / $lastlen) - 1;
+        print STDERR "repeat $times times till " . hex($offset) . " row=$row\n" if $verbose eq "-vv";
+        $row = $lastrow x $times . $row;
+        $repeat = 0;
+      }
       # is our new offset the correct increase of bytes?
-      if (hex($offset) - $lastoff != $lastlen)
+      elsif (hex($offset) - $lastoff != $lastlen)
       {
         print STDERR "bad offset: (0x$offset)" . hex($offset) . " - $lastoff != $lastlen ($row)\n";
         return undef;
       }
     }
+
     $lastoff = hex($offset);
     $lastlen = length($rest) / 2;
+    $lastrow = $rest;
+  }
+
+  # handle '*' lines which mean repeat until next offset
+  elsif ($row =~ /^\*\r?$/)
+  {
+    $repeat = 1;
+    $row = "";
+    print STDERR "repeat=1\n" if $verbose eq "-vv";
   }
 
   # no offset
   else
   {
+    return "" if $row eq "\r";
     return undef;
   }
+  $rownum++;
   return $row;
 }
