@@ -1,0 +1,41 @@
+#!/usr/bin/perl
+#
+# return the ip address(es) matching a MAC address
+# scans the network if not already in cache
+#
+# -samy kamkar, 2020/06/21
+
+use strict;
+use Socket;
+
+die "usage: $0 <MAC | OUI | photon>\n" unless @ARGV;
+
+my $mac = lc(shift);
+$mac = "e0:4f:43" if $mac =~ /photon|particle/i;
+$mac =~ s/[^a-f\d]//g;
+$mac =~ s/(..)\B/$1:/g;
+
+my %done = ("127.0.0" => 1);
+
+foreach my $ip (`ifconfig` =~ /inet\s+(\S+)\.\d+\s/g)
+{
+  next if $done{$ip}++;
+  foreach (0 .. 255)
+  {
+    socket my $s, PF_INET, SOCK_DGRAM, 0;
+    connect $s, pack_sockaddr_in(1, inet_aton("$ip.$_"));
+    syswrite $s, 1, 1;
+  }
+}
+sleep(1);
+arp();
+
+sub arp
+{
+  my $match;
+  my @arp = `arp -na`;
+  foreach (map { /\((.*?)\)\s+at\s+$mac/ig } @arp)
+  {
+    print "$_\n" if !$done{$_}++;
+  }
+}
