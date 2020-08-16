@@ -1,1 +1,121 @@
-2svg
+#!/usr/bin/perl
+
+# automatically convert .dxf's to .svg's (typically Fusion 360 DXFs to SVGs for use in Glowforge)
+#
+# -samy kamkar 2018/05/17
+
+# Path to 3D files dir
+my $DEFAULT_DIR = "$ENV{HOME}/Code/3D";
+
+# Possible paths to Inkscape binary, as well as $PATH
+my @inkscape = (qw|
+  /Applications/Design/Inkscape.app/Contents/Resources/bin/inkscape
+  /Applications/Design/Inkscape.app/Contents/Resources/bin/inkscape-bin
+  /Applications/Design/Inkscape.app/Contents/MacOS/Inkscape
+  /opt/local/bin/inkscape
+  /Applications/Inkscape.app/Contents/Resources/bin/inkscape
+  /Applications/Inkscape.app/Contents/Resources/bin/inkscape-bin
+  /Applications/Inkscape.app/Contents/MacOS/Inkscape
+|, map { "$_/inkscape" } split(/:/, $ENV{PATH}));
+
+# options to pass to inkscape
+my @opts = qw/-z -l/;
+
+=cut
+
+to run on startup on macOS, make sure your paths (perl, dxf2svg, and dxf directory are correct):
+
+cat > ~/Library/LaunchAgents/pl.samy.dxf2svg.plist
+<?xml version=1.0 encoding=UTF-8?>
+<!DOCTYPE plist PUBLIC -//Apple//DTD PLIST 1.0//EN http://www.apple.com/DTDs/PropertyList-1.0.dtd>
+<plist version=1.0>
+<dict>
+    <key>Label</key>
+    <string>pl.samy.dxf2svg</string>
+    <key>ProgramArguments</key>
+    <array>
+      <string>/opt/local/bin/perl</string>
+      <string>/b/dxf2svg</string>
+      <string>-a</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+</dict>
+</plist>
+=cut
+
+use Cwd;
+use strict;
+
+# Find path to inkscape
+my ($INKSCAPE) = grep -e, @inkscape;
+die "You must have inkscape installed or discoverable from your \$PATH" unless $INKSCAPE;
+
+die "usage: $0 <from dxf> [optional svg] | <-a [optional path to watch for dxfs] (auto-convert in background)>\n" unless $ARGV[0] eq "-a" || grep -e, @ARGV;
+
+# run in background
+$ARGV[0] eq "-a" ? bg($ARGV[1]) : convert(@ARGV);
+
+sub bg
+{
+  my $dir = shift || $DEFAULT_DIR;
+  if (my $p = fork)
+  {
+    die "Running in bg! (pid $p)\n";
+  }
+  close(STDERR);
+  close(STDIN);
+  close(STDOUT);
+
+  my %files = map { $_ => mtime($_) } <$dir/*.dxf>;
+
+  while (1)
+  {
+    foreach my $file (<$dir/*.dxf>)
+    {
+      my $mtime = mtime($file);
+
+      # new file or newer mod time
+      if (!$files{$file})
+      {
+        #print "New file: $file\n";
+        $files{$file} = $mtime;
+        dxf2svg($file);
+      }
+      elsif ($mtime > $files{$file})
+      {
+        #print "Newer mod time: $file\n";
+        $files{$file} = $mtime;
+        dxf2svg($file);
+      }
+    }
+    sleep 1;
+  }
+}
+
+sub convert
+{
+  my ($from, $to) = @_;
+
+  # need absolute paths
+  my $cwd = cwd();
+  $from = "$cwd/$from" unless $from =~ m|^/|;
+
+  # out filename
+  ($to = $from) =~ s/\.\w+$/.svg/ unless defined($to);
+
+  print "Converting $from -> $to!\n";
+  system($INKSCAPE, @opts, $to, $from);
+}
+
+sub mtime
+{
+  return (stat($_[0]))[9];
+}
+
+sub dxf2svg
+{
+  my $out = $_[0];
+  $out =~ s/dxf$/svg/;
+  convert($_[0], $out);
+}
