@@ -1,8 +1,9 @@
 #!/usr/bin/perl
 #
 # TODO:
+#  - long lines doesn't work with -v
 #  - make correct params
-#  - for looong lines, only copy chars before/after
+#  - add documentation on each param
 
 =pod
 
@@ -64,7 +65,7 @@ $|++;
 use strict;
 use Term::ANSIColor;
 # XXX make this configurable
-my $MAXLEN = 500; # max bytes to print in a line to avoid long lines from showing entirely
+my $MAXLEN = 700; # max bytes to print in a line to avoid long lines from showing entirely
 die "usage: $0 [files] [-Nao] [-n <file match>] [-i=file] [-e=file] [-options] <match> [-v !match] [-x <cmd, eg ls -lh>]\n" unless @ARGV;
 #my $DEFAULTS = "-I";
 
@@ -119,7 +120,6 @@ for (my $i = 0; $i < @ARGV; $i++)
         $color = 1;
       }
 
-
       # find files with this name
       elsif ($opt eq "-n")
       {
@@ -160,12 +160,11 @@ for (my $i = 0; $i < @ARGV; $i++)
     splice(@ARGV, $i, 1) if ($ARGV[$i] eq "-");
     #splice(@ARGV, $i, $splice) if $splice;
   }
-
 }
 
-if (@ARGV >= 3 && $ARGV[-3] !~ /^-/ && $ARGV[-2] =~ /^-v(i)?$/)
+if (@ARGV >= 3 && $ARGV[-3] !~ /^-/ && $ARGV[-2] =~ /^-(i)?v(i)?$/)
 {
-  $noi = $1 ? "(?i)" : "";
+  $noi = $1 || $2 ? "(?i)" : "";
   $no = pop(@ARGV);
   pop(@ARGV);
 }
@@ -255,7 +254,7 @@ sub run
   {
     my $d = $_;
     #print "d=$d\n";
-    if (length($d) > $MAXLEN)
+    if (!$piped && length($d) > $MAXLEN)
     {
       my $nl = 0;
 
