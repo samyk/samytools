@@ -1,13 +1,18 @@
 #!/usr/bin/perl
+#
+# convert ascii or binary (01) to hex. read from stdin, file names, or args
+# -x to add \x
+
+# -samy kamkar
 
 my $x = shift @ARGV if $ARGV[0] eq "-x";
 
-# no data piped in, use file
-if (-t STDIN)
+# no data piped in and args aren't file names
+if (-t STDIN && (grep { -e } @ARGV) != @ARGV)
 {
   foreach (@ARGV)
   {
-    s/(.{8})/($x ? "\\x" : "") . unpack("H2", pack("B8", $1))/eg;
+    /^[01]+$/ ? s/([01]{8})/($x ? "\\x" : "") . unpack("H2", pack("B8", $1))/eg : s/(.)/unpack"H2", $1/egs;
     print;
   }
 }
