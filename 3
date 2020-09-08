@@ -1,6 +1,13 @@
 #!/opt/local/bin/perl
 
 use bignum;
+#use y;;;
+use constant PI => 4 * atan2(1, 1);
+#sub pi { 355/113 }
+sub asin { atan2($_[0], sqrt(1 - $_[0] * $_[0])) }
+sub acos { atan2( sqrt(1 - $_[0] * $_[0]), $_[0] ) }
+sub tan { sin($_[0]) / cos($_[0])  }
+sub log10 { log($_[0])/log(10) }
 
 my $debug = 0;
 my $VERSION = "0.42";
@@ -121,9 +128,10 @@ unless ($baseconv || $baseconv =~ /^calc/i) {
 $baseconv =~ /^(.)(.)$/;
 my ($first, $second) = ($conv{$1} . "2bin", "bin2" . $conv{$2});
 
+my $nl = -t STDOUT ? "\n" : "";
 foreach my $value (@values) {
   $value = eval($value) if $value =~ /^\d[\d\+\-\.\/\*\^\&\|\!\(\)]*$/ && $value !~ /^\w+$/; # otherwise 00xx gets treated as octal
-  print &{$second}(&{$first}($value)) . "\n";
+  print &{$second}(&{$first}($value)) . $nl;
 }
 exit 0;
 
@@ -133,6 +141,8 @@ sub operate {
  my $origstr = $string;
  $string =~ s/\s*//g;
  $string =~ s/,\[([^\]]+)\]$//;
+ $string =~ s/\bPI(\(\))?\b/PI()/eg;
+ $string =~ s|(\d+)d(eg)?\b|$1 * PI() / 180|eg;
  $string = "($string)";
  if ($ops = $1) {
   while ($ops =~ /\@?\$?([a-zA-Z_]\w+|[a-zA-Z])\[([^\]]+)\]/) {
