@@ -13,6 +13,6 @@ git("push");
 
 sub git
 {
-  print STDERR "$CMD @OPTS @_\n";
+  print STDERR join " ", $CMD, @OPTS, @_, "\n";
   return system($CMD, @OPTS, @_);
 }
