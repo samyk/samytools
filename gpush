@@ -1,0 +1,18 @@
+#!/usr/bin/perl
+#
+# quickly git add/commit/push files
+# -samy kamkar 2020/10/25
+
+my $CMD = "git";
+my @OPTS = qw//;
+
+use strict;
+git("add", @ARGV) if @ARGV;
+git("commit", @ARGV ? @ARGV : <*>);
+git("push");
+
+sub git
+{
+  print STDERR "$CMD @OPTS @_\n";
+  return system($CMD, @OPTS, @_);
+}
