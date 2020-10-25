@@ -1,0 +1,23 @@
+#!/usr/bin/perl
+#
+# prettify data, detects the parser based on the name of program run
+# useful for prettifying inline data in vim, eg on visual block, `:.!pjs` will replace it with prettified JS
+# -samy kamkar 2020/10/25
+
+use strict;
+
+my $DEFAULT = 'prettier';
+my %types = (
+  'js' => 'babel',
+  'javascript' => 'babel',
+  'md' => 'markdown',
+  'ts' => 'typescript',
+);
+
+# /b/pjs -> js
+my $type = substr((split('/', $0))[-1], 1);
+$type = $types{$type} || $type;
+
+# run
+print STDERR "$DEFAULT --parser $type\n";
+system($DEFAULT, "--parser", $type);
