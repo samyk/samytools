@@ -1,0 +1,23 @@
+#!/usr/bin/perl
+#
+# compile or flash code using particle or platformio
+#
+# used in vim with ctrl+k/ctrl+l:
+# nnoremap <C-k> :w \| !flash -c<CR>
+# nnoremap <C-l> :w \| !flash<CR>
+#
+# -samy kamkar 2020/06/20
+
+my $compile = $ARGV[0] eq "-c" && shift;
+my $platformio = -e "platformio.ini";
+my $name = "p"; # particle board name
+my $board = "photon";
+
+if ($platformio)
+{
+  system($compile ? qw/platformio run -v/ : qw/platformio run -v --target upload/);
+}
+else
+{
+  system($compile ? ("particle", "compile", $board) : ("particle", "flash", $name));
+}
