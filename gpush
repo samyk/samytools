@@ -7,12 +7,13 @@ my $CMD = "git";
 my @OPTS = qw//;
 
 use strict;
+git("stash") && git("pull") && git("stash", "pop");
 git("add", @ARGV) if @ARGV;
-git("commit", @ARGV ? @ARGV : <*>);
-git("push");
+#my @changed = (`$CMD status` =~ /: +(\S+)/g);
+git("commit", @ARGV ? @ARGV : (`$CMD status` =~ /: +(\S+)/g)) && git("push");
 
 sub git
 {
   print STDERR join " ", ">", $CMD, @OPTS, @_, "\n";
-  return system($CMD, @OPTS, @_);
+  return !system($CMD, @OPTS, @_);
 }
