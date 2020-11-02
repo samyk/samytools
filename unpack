@@ -1,0 +1,60 @@
+#!/usr/bin/perl
+#
+# recursively unpacks all file
+# -samy kamkar 2020/11/01
+
+use strict;
+use Cwd;
+
+die "usage: $0 <file / path>" unless @ARGV == 1;
+
+my %formats = (
+  "cpio"  => "cpio -idv -F 'FILE'",
+  "xar"   => "xar -xv -f 'FILE'",
+  "gzip"  => "zcat 'FILE' > 'FILE.unp'"
+);
+my %files;
+find(shift);
+
+sub find
+{
+  foreach my $file (@_)
+  {
+    print "searching $file\n";
+    -d $file ? find(<$file/*>) : explode($file);
+  }
+}
+
+sub explode
+{
+  foreach my $file (@_)
+  {
+    print "FILE: $file\n";
+    # skip files if we've already unpacked them
+    next if $files{$file}++;
+
+    chomp(my $type = `file '$file'`);
+    (undef, $type) = split(/:\s+/, $type, 2);
+
+    my $unpack = type($type);
+    print "searching $file ($type)\n";
+    if ($unpack)
+    {
+      $unpack =~ s/FILE/$file/g;
+      print STDERR "> $unpack";
+      system($unpack);
+
+      # rescan unpacked files
+      find(<*>);
+    }
+  }
+}
+
+sub type
+{
+  my $type = shift;
+  foreach my $format (keys %formats)
+  {
+    return $formats{$format} if $type =~ /$format/i;
+  }
+}
