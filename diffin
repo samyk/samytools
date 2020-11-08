@@ -1,0 +1,27 @@
+#!/usr/bin/perl
+#
+# diff two or more buffers, as well as allowing multiple buffers to come in stdin (ctrl+d per buffer)
+# -samy kamkar 2020/11/08
+# https://samy.pl
+
+use strict;
+my $FILE = "/tmp/.diff.buf.";
+my $DIFF = 'colordiff';
+my @OPTS = qw/-btwur/;
+
+my @bufs;
+do
+{
+  push @bufs, join ("", <STDIN>);
+  print STDERR "read in buffer\n";
+} while $bufs[-1] ne "";
+
+# last buff is empty
+for my $i (1 .. $#bufs)
+{
+  open(OUT, ">$FILE$i");
+  print OUT $bufs[$i-1];
+  close(OUT);
+
+  system($DIFF, @OPTS, $FILE . ($i-1), $FILE . $i) if $i != 1;
+}
