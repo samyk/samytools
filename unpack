@@ -6,12 +6,18 @@
 use strict;
 use Cwd;
 
-die "usage: $0 <file / path>" unless @ARGV == 1;
+die "usage: $0 <file / path>\n" unless @ARGV == 1;
 
 my %formats = (
   "cpio"  => "cpio -idv -F 'FILE'",
   "xar"   => "xar -xv -f 'FILE'",
-  "gzip"  => "zcat 'FILE' > 'FILE.unp'"
+  "gzip"  => "zcat 'FILE' > 'FILE.unp'",
+  "7-zip" => "7z x FILE",
+  "xz"    => "xz -vd FILE",
+);
+my %exts = (
+  "7z"  => "7-zip",
+  "gz"  => "gzip"
 );
 my %files;
 find(shift);
@@ -36,7 +42,7 @@ sub explode
     chomp(my $type = `file '$file'`);
     (undef, $type) = split(/:\s+/, $type, 2);
 
-    my $unpack = type($type);
+    my $unpack = type($type, $file);
     print "searching $file ($type)\n";
     if ($unpack)
     {
@@ -52,9 +58,10 @@ sub explode
 
 sub type
 {
-  my $type = shift;
+  my ($type, $file) = @_;
   foreach my $format (keys %formats)
   {
-    return $formats{$format} if $type =~ /$format/i;
+    return $formats{$format} if $type =~ /$format/i
   }
+  return $formats{$exts{$1}} if $file =~ /\.([^.]+)$/;
 }
