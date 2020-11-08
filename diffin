@@ -1,6 +1,7 @@
 #!/usr/bin/perl
 #
-# diff two or more buffers, as well as allowing multiple buffers to come in stdin (ctrl+d per buffer)
+# diff two or more buffers
+# split buffers with an empty line (\n) or end STDIN multiple times (ctrl+d per buffer)
 # -samy kamkar 2020/11/08
 # https://samy.pl
 
@@ -8,20 +9,28 @@ use strict;
 my $FILE = "/tmp/.diff.buf.";
 my $DIFF = 'colordiff';
 my @OPTS = qw/-btwur/;
+my @buf;
 
-my @bufs;
+# read in buffers until we have an empty one
 do
 {
-  push @bufs, join ("", <STDIN>);
+  push @buf, join "", <STDIN>;
   print STDERR "read in buffer\n";
-} while $bufs[-1] ne "";
+} while $buf[-1] ne "";
+
+pop @buf; # last is empty
+
+# if we only have one, treat empty lines as delimmeters
+splice(@buf, 0, 1, split(/\n\n/, $buf[0])) if !$#buf;
 
 # last buff is empty
-for my $i (1 .. $#bufs)
+for my $i (1 .. @buf)
 {
   open(OUT, ">$FILE$i");
-  print OUT $bufs[$i-1];
+  print OUT $buf[$i-1];
   close(OUT);
 
   system($DIFF, @OPTS, $FILE . ($i-1), $FILE . $i) if $i != 1;
 }
+
+
