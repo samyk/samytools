@@ -15,13 +15,16 @@ my @buf;
 do
 {
   push @buf, join "", <STDIN>;
-  print STDERR "read in buffer\n";
+  print STDERR "read in buffer\r";
 } while $buf[-1] ne "";
 
-pop @buf; # last is empty
+print "-" x 60, "\n";
+
+# last is empty
+pop @buf;
 
 # if we only have one, treat empty lines as delimmeters
-splice(@buf, 0, 1, split(/\n\n/, $buf[0])) if !$#buf;
+splice(@buf, 0, 1, split(/\n\n/, $buf[0])) if @buf == 1;
 
 # last buff is empty
 for my $i (1 .. @buf)
