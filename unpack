@@ -9,6 +9,7 @@ use Cwd;
 die "usage: $0 <file / path>\n" unless @ARGV == 1;
 
 my %formats = (
+  "bzip2" => "bzip -d 'FILE'",
   "cpio"  => "cpio -idv -F 'FILE'",
   "xar"   => "xar -xv -f 'FILE'",
   "gzip"  => "zcat 'FILE' > 'FILE.unp'",
