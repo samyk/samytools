@@ -1,0 +1,39 @@
+#!/usr/bin/perl
+#
+# convert image to text from a file or url
+#
+# -samy kamkar 2020/12/06
+
+use strict;
+die "usage: $0 <path/url to image>\n" unless @ARGV == 1;
+
+my $TESSERACT = "tesseract"; # ocr engine
+my $WGET = "wget";
+my $CONVERT = "convert"; # imagemagick
+
+my @convopts = ('-draw', 'color 0,0 floodfill', qw/-fuzz 50% -fill white -opaque white -bordercolor black -border 2 -fill white -alpha off -negate -units pixelsperinch -density 72/);
+
+my $DIR = "/tmp";
+
+my $file = shift;
+my $rand = time();
+if (!-e $file)
+{
+  my $nf = "$DIR/.ocr.get.$rand";
+  system($WGET, $file, "-O", $nf);
+  $file = $nf;
+}
+
+my $img = "$DIR/.ocr.new.$rand.png";
+system($CONVERT, $file, @convopts, $img);
+system("open", $img);
+
+# run tesseract and output to file, it adds .txt to end
+my $out = "$DIR/.ocr.out.$rand";
+system($TESSERACT, $img, $out);
+$out .= ".txt";
+
+# read our file
+open(OUT, "<$out") || die $!;
+print while <OUT>;
+close(OUT);
