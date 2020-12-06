@@ -1,6 +1,7 @@
 #!/usr/bin/perl
 #
 # TODO:
+#  - support passing a directory to -R
 #  - long lines doesn't work with -v
 #  - make correct params
 #  - add documentation on each param
@@ -64,6 +65,7 @@ $|++;
 
 use strict;
 use Term::ANSIColor;
+
 # XXX make this configurable
 my $MAXLEN = 700; # max bytes to print in a line to avoid long lines from showing entirely
 die "usage: $0 [files] [-Nao] [-n <file match>] [-i=file] [-e=file] [-options] <match> [-v !match] [-x <cmd, eg ls -lh>]\n" unless @ARGV;
@@ -82,9 +84,11 @@ else
 	$stdin = "r";
 }
 
+# stdout = true if piping out, eg g | something
 my $stdout = -t STDOUT;
 my $linenos = 0;
 my @run;
+#print STDERR "binary=$binary piped=$piped stdin=$stdin stdout=$stdout\n";
 
 for (my $i = 0; $i < @ARGV; $i++)
 {
@@ -254,7 +258,8 @@ sub run
   {
     my $d = $_;
     #print "d=$d\n";
-    if (!$piped && length($d) > $MAXLEN)
+    # XXX add option to disable this cutting
+    if (length($d) > $MAXLEN)
     {
       my $nl = 0;
 
