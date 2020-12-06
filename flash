@@ -10,7 +10,7 @@
 
 my $compile = $ARGV[0] eq "-c" && shift;
 my $platformio = -e "platformio.ini";
-my $name = "p"; # particle board name
+my $name = shift || "p"; # particle board name
 my $board = "photon";
 
 if ($platformio)
