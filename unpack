@@ -2,33 +2,59 @@
 #
 # recursively unpacks all file
 # -samy kamkar 2020/11/01
+#
+# TODO:
+#  - instead of ignoring files we already see, don't ignore files if their lastmod time changes (eg we unpacked pre-existing files)
+#  - ignore files should recurse
 
 use strict;
 use Cwd;
 
-die "usage: $0 <file / path>\n" unless @ARGV == 1;
+die "usage: $0 [-v] <files / paths ...>\n" unless @ARGV;
+my $verbose = $ARGV[0] eq "-v" ? shift : 0;
 
 my %formats = (
-  "bzip2" => "bzip -d 'FILE'",
-  "cpio"  => "cpio -idv -F 'FILE'",
-  "xar"   => "xar -xv -f 'FILE'",
-  "gzip"  => "zcat 'FILE' > 'FILE.unp'",
+  "bzip2" => "bzip2 -vd FILE",
+  "tar"   => "tar -xvf FILE",
+  "cpio"  => "cpio -idv -F FILE",
+  "xar"   => "xar -xv -f FILE",
+  "gzip"  => "zcat -v FILE > FILE.unp",
   "7-zip" => "7z x FILE",
   "xz"    => "xz -vd FILE",
+  "^zip"  => "unzip FILE",
 );
+
 my %exts = (
   "7z"  => "7-zip",
-  "gz"  => "gzip"
+  "gz"  => "gzip",
 );
-my %files;
-find(shift);
+
+# this helps us ensure we're only looking at longer formats first - for example, match "7-zip" before "zip"
+# alternatively, be verbose in %formats to prevent mismatches
+my @formats = sort { length($b) <=> length($a) } keys %formats;
+
+# files we still want to scan, use hash for speed
+my %scan = map { $_ => 1 } @ARGV;
+# let's skip the files that already exist in this dir
+my %skip = map { $_ => 1 } grep { !$scan{$_} } <*>;
+
+# traverse the files/dirs we passed in
+find(@ARGV);
+exit;
+
+####
 
 sub find
 {
   foreach my $file (@_)
   {
-    print "searching $file\n";
-    -d $file ? find(<$file/*>) : explode($file);
+    # skip specific paths
+    next if $skip{$file};
+
+    # skip pre-existing files
+    debug("searching $file");
+    my $shfile = shquote($file);
+    -d $file ? find(<$shfile/*>) : explode($file);
   }
 }
 
@@ -36,19 +62,23 @@ sub explode
 {
   foreach my $file (@_)
   {
-    print "FILE: $file\n";
-    # skip files if we've already unpacked them
-    next if $files{$file}++;
+    #print STDERR "FILE: $file\n";
 
-    chomp(my $type = `file '$file'`);
+    # skip files if we've already unpacked them
+    next if $skip{$file}++;
+
+    my $shfile = shquote($file);
+
+    chomp(my $type = `file $shfile`);
     (undef, $type) = split(/:\s+/, $type, 2);
 
     my $unpack = type($type, $file);
-    print "searching $file ($type)\n";
+    debug("searching $file ($type)");
     if ($unpack)
     {
-      $unpack =~ s/FILE/$file/g;
-      print STDERR "> $unpack";
+      # quote the file in case it has spaces/quotes
+      $unpack =~ s/FILE/$shfile/g;
+      print "> $unpack\n";
       system($unpack);
 
       # rescan unpacked files
@@ -65,4 +95,16 @@ sub type
     return $formats{$format} if $type =~ /$format/i
   }
   return $formats{$exts{$1}} if $file =~ /\.([^.]+)$/;
+}
+
+sub debug
+{
+  print "$_[0]\n" if $verbose;
+}
+
+# quote file for shell
+sub shquote
+{
+  (my $shfile = $_[0]) =~ s/'/'\\''/g;
+  return "'$shfile'";
 }
