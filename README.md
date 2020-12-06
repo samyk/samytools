@@ -95,6 +95,13 @@ This is a collection of simple but effective tools to use on the command line to
 `ipfwd 0` # disable ip forwardwing
 `ipfwd 5 10` # enable for 5 seconds, disable for 10 seconds, enable on exit
 
+**nocolor** - removes color from piped input, useful if you're trying to parse data where color codes are interfering
+`command_that_has_colored_output | nocolor | grep something`
+
+**ocr** - converts image (local file or url) to text via tesseract, cleans up the image first via imagemagick
+`ocr https://samy.pl/code.png > code.txt`
+`ocr passwords.png > passes.txt`
+
 **onchange** - run a command whenever a file/directory changes
 `onchange . rsync -av ./ remote.com:project`
 
@@ -133,6 +140,12 @@ This is a collection of simple but effective tools to use on the command line to
 **timer** -
 **tm** -
 **unm** -
+
+**unpack** - recursively unpack a file and any archives it contains
+- useful for files like .pkg that are xar archives containing further gz/cpio archives
+- this will not only unpack the primary file (zip/bz2/gz/tar/cpio/xar/gz/7z/xz) but also all packed/archived files contained
+`unpack .` - look for any archives in our dir
+`unpack -v archive.tar.gz` - verbose
 
 **unz** - Runs lzma on multiple files
 `unz <file1> <file2> `
