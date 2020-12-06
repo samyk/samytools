@@ -1,0 +1,16 @@
+#!/usr/bin/perl
+
+use strict;
+die "usage: $0 <file.img> <disk #>\n" unless @ARGV == 2;
+
+my ($file, $disk) = @ARGV;
+
+# first, make sure it's not in the MBP SD port but in monitor's SD port (not sure why)
+# unmount via diskutil
+system("sudo diskutil unmount /dev/disk${disk}s1");
+
+# dd, changing disk to rdisk
+system("sudo dd if=$file of=/dev/rdisk${disk} bs=1m");
+
+# eject
+system("sudo diskutil eject /dev/rdisk$disk");
