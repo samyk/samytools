@@ -190,12 +190,20 @@ for (my $i = 0; $i < @ARGV; $i++)
   }
 }
 
+# grep features we want
 splice(@ARGV, 0, 0, $grep, ($ARGV[0] =~ /^-/ || @ARGV == 1) && -t STDIN ? <*> : ());
+# don't parse .git dirs
 splice(@ARGV, -1, 0, "--exclude-dir=.git", "--exclude-dir=.svn", "-TPs${stdin}");
+# we want color
+#splice(@ARGV, -1, 0, "--color=always");
 splice(@ARGV, -1, 0, "--color=always") if $stdout;
+# if we want line numbers
 splice(@ARGV, -1, 0, "-n") if $stdout && $linenos;
+# don't process binary files unless we want to
 splice(@ARGV, -1, 0, "-I") unless $binary;
+# pattern follows
 splice(@ARGV, -1, 0, "-e");
+
 $ARGV[-1] .= '|$' if $color; # colorize output but show everything
 
 print STDERR join(" ", @ARGV) . "\n" if $out;
