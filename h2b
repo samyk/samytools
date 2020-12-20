@@ -41,8 +41,7 @@ print $data;
 
 sub cleanup
 {
-  $data =~ s/^\n//gm;
-  $data =~ s/\n$//gm;
+  $data =~ s/^\r?\n|\r?\n$//gm;
 
   my @data = split "\n", $data;
 
@@ -65,7 +64,7 @@ sub cleanup
   {
     die "$newdata\n\nData isn't proper hex!\n";
   }
-  $newdata =~ s/(..)/pack "H2", $1/eg;
+  $newdata = pack "H*", $newdata;
 
   return $newdata;
 }
@@ -73,7 +72,7 @@ sub cleanup
 sub parse
 {
   my $row = shift;
-  chomp($row);
+  #chomp($row);
 
   #print STDERR "$row\n";
   # tcpdump, reset offset, ignore line
@@ -90,12 +89,18 @@ sub parse
     $lastoff = 0;
   }
 
+  # just pure hex
+  elsif ($row =~ /^([a-f\d]+)$/i)
+  {
+    return $1;
+  }
+
   # parse offset + data in various tool formats
   elsif (
     $row =~ /^([a-f\d]{8}) ((?: [a-f\d]{2}){1,16})   /i ||
     $row =~ /^([a-f\d]{8,}) \s+ ( (?:[a-f\d]{2} (?:\s? [a-f\d]{2})? \s+ )+ ) \s* \|/ix ||
     $row =~ /^\s*0x([a-f\d]+):\s+((?:[a-f\d]{2}[a-f\d]{0,2}\s?){1,8})/i ||
-    $row =~ /^\s*()((?:[a-f\d]{2}\s*){1,16})/i ||
+    $row =~ /^\s*()((?:[a-f\d]{2}\s*){1,16})/i || # XXX need to be more explicit
     $row =~ /^\s*(?:0x)?([a-f\d]+):?(?:\s+([a-f\d][a-f\d\s]+))?(?:\|.*\|\s*)?$/i)
   {
     # TODO once a format is found, only use that from then on
