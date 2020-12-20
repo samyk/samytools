@@ -10,7 +10,10 @@ my $MAXBYTES = 2 ** 20;
 my $file = shift;
 my $start = shift;
 my $bytes = pop;
+$start =~ s/0x(\w+)/hex($1)/e;
+$bytes =~ s/0x(\w+)/hex($1)/e;
 $bytes -= $start if $ARGV[0] eq "-p";
+$bytes = hex($bytes) if $bytes =~ /^0x/i;
 
 open(F, "<$file") || die "can't open $file: $!";
 seek(F, $start, 0);
