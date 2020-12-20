@@ -5,7 +5,7 @@
 
 # -samy kamkar 2018/05/17
 #
-my $dxf2svg = "dxf2svg";
+my $dxf2svg = "dxf2svg"; # tool to convert dxfs to svg (this runs inkscape)
 my $DEFAULT_DIR = "$ENV{HOME}/Code/3D";
 
 use strict;

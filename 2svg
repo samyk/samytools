@@ -1,13 +1,23 @@
 #!/usr/bin/perl
 #
-# convert image files (eg .dxf) to SVG
+# convert images (including DXF files) to SVG, useful for converting Fusion 360 sketches to SVG
+# requires Inkscape
+#
+# -samy kamkar
 
 # Possible paths to Inkscape binary
 my @inkscape = (qw|
-  /Applications/Inkscape.app/Contents/Resources/bin/inkscape
   /Applications/Design/Inkscape.app/Contents/Resources/bin/inkscape
+  /Applications/Design/Inkscape.app/Contents/Resources/bin/inkscape-bin
+  /Applications/Design/Inkscape.app/Contents/MacOS/Inkscape
   /opt/local/bin/inkscape
+  /Applications/Inkscape.app/Contents/Resources/bin/inkscape
+  /Applications/Inkscape.app/Contents/Resources/bin/inkscape-bin
+  /Applications/Inkscape.app/Contents/MacOS/Inkscape
 |, map { "$_/inkscape" } split(/:/, $ENV{PATH}));
+
+# options to pass to inkscape
+my @opts = qw/-z -l/;
 
 # Find path to inkscape
 my ($INKSCAPE) = grep -e, @inkscape;
@@ -28,6 +38,4 @@ $from = "$cwd/$from" unless $from =~ m|^/|;
 ($to = $from) =~ s/\.\w+$/.svg/ unless defined($to);
 
 print "Converting $from -> $to!\n";
-system($INKSCAPE, "-l", $to, $from);
-
-#/Applications/Design/Inkscape.app/Contents/Resources/bin/inkscape -l `pwd`/test.svg `pwd`/driven-test2.dxf
+system($INKSCAPE, @opts, $to, $from);
