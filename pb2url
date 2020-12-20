@@ -46,6 +46,11 @@ while (1)
     system("echo '$nurl' | pbcopy");
 #    print STDERR "Copied $nurl\n";
   }
+  elsif ($url =~ m|^https://www.wikiwand.com/en/(.*)$|)
+  {
+    my $nurl = "https://en.wikipedia.org/wiki/$1";
+    system("echo '$nurl' | pbcopy");
+  }
 
   #https://www.dropbox.com/s/gegnifzzcv1wepe/ds1.png?dl=0
 
