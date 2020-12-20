@@ -1,4 +1,7 @@
 #!/usr/bin/perl
+#
+# convert base64 to ascii
+# ignore lines starting with ---
 
 my $out = -t STDOUT ? "\n" : "";
 use MIME::Base64;
@@ -9,27 +12,18 @@ if ($type eq "-d")
 {
 	if (@ARGV)
 	{
-		foreach (@ARGV)
-		{
-			print MIME::Base64::decode_base64($_) . $out;
-		}
+    print decode($_) . $out for @ARGV;
 	}
 	else
 	{
-		while (<>)
-		{
-			print MIME::Base64::decode_base64(join("", $_)) . $out;
-		}
+    print decode($_) while <>;
 	}
 }
 elsif ($type eq "-e")
 {
 	if (@ARGV)
 	{
-		foreach (@ARGV)
-		{
-			print MIME::Base64::encode_base64($_);
-		}
+    print MIME::Base64::encode_base64($_) for @ARGV;
 	}
 	else
 	{
@@ -39,4 +33,20 @@ elsif ($type eq "-e")
 else
 {
 	die "usage: $0 <-d | -e> [data | STDIN]\n";
+}
+
+sub decode
+{
+  chomp($_[0]);
+  if ($_[0] =~ /^---/)
+  {
+    print STDERR "NOTICE: Ignoring line: $_\n";
+    return "";
+  }
+  elsif ($_[0] =~ m|[^A-Za-z0-9+/=]|)
+  {
+    print STDERR "WARNING: Ignoring chars: " . join(",", $_[0] =~ m|([^A-Za-z0-9+/=]+)|g) . "\n";
+  }
+
+  return MIME::Base64::decode_base64($_[0]);
 }
