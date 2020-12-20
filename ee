@@ -6,6 +6,18 @@ use strict;
 my %expr = (
   parallel_res => { '*' => [[qw/R/], sub { my $tmp = 0; map { $tmp += (1/$_) } @_; 1/$tmp } ]},
   #series_res   => { '*' => [[qw/R/], sub { my $tmp = 0; map { $tmp += (1/$_) } @_; return 1/$tmp } ]},
+  bat_j => {
+    2 => [ [qw/V Ah J/],
+      sub { $_[1] * $_[0] * 3600 } ]},
+  bat_wh => {
+    2 => [ [qw/V Ah Wh/],
+      sub { $_[1] * $_[0] } ]},
+  cap_wh => {
+    2 => [ [qw/V Farad Wh/],
+      sub { 1/2 * $_[1] * $_[0] ** 2 / 3600 } ]},
+  cap_j => {
+    2 => [ [qw/V Farad J/],
+      sub { 1/2 * $_[1] * $_[0] ** 2 } ]},
   voltage_div => {
     3 => [ [qw/Vin R1 R2 Vout/],
       sub { $_[0] * ($_[2] / ($_[1] + $_[2])) } ]},
@@ -14,6 +26,10 @@ my %expr = (
       sub { 1.25 * ($_[1] / $_[0] + 1) }],
     1 => [ [qw/Voltage R1 R2/],
       sub { (240, ($_[0] / 1.25 - 1) * 240) }],
+  },
+  esr => {
+    2 => [ [ qw/SignalV VDiff ESR/], sub { (($_[1] * 50) / ($_[0] - $_[1])) } ],
+    3 => [ [ qw/SignalV VDiff InlineRes ESR/], sub { (($_[1] * $_[2]) / ($_[0] - $_[1])) } ],
   },
   _uf => { 1 => [ [qw/uF nF pF/], sub { ($_[0] * 1e3, $_[0] * 1e6) } ] },
   _nf => { 1 => [ [qw/nF uF pF/], sub { ($_[0] / 1e3, $_[0] * 1e3) } ] },
@@ -59,11 +75,16 @@ sub usage
   die "usage: $0 <arg> [opts]
 
 XuF                 # converts 'X'uF to nF/pF
+bat_wh V            # get watt-hours from battery
+bat_j V Ah          # get joules from battery
+cap_wh V Farad      # get watt-hours of capacitor
+cap_j V Farad       # get joules from capacitor
 voltage_div V R1 R2 # get voltage from voltage divider (R2 to gnd)
 parallel_res R1 R2  # get total resistance of parallel resistors
 series_res R1 R2    # get total resistance of series resistors
 lm317 V             # calculate R1 and R2 to produce voltage
 lm317 R1 R2         # voltage created from R1 and R2
+esr V VDiff [Res]   # calculate ESR of cap given V signal and VDiff when AC coupled (Res=50)
 ";
 
 }
