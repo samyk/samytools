@@ -11,33 +11,48 @@ while (<>)
 {
 	chomp;
 	s/\r$//;
-	if (/^:(..)(....)(..)(.*)/)
+	if (/^:(..)(....)(..)(.*)(..)$/)
 	{
-		my ($count, $addy, $record, $rest) = ($1, $2, $3, $4);
+		my ($count, $addy, $record, $data, $ck) = ($1, $2, $3, $4, $5);
+
+    # let's calculate our checksum
+    my $calcck = 0;
+    $calcck += $_ for map { hex } split /(..)/, $count . $addy . $record . $data;
+    $calcck = 0xFF & (0x01 + ~$calcck);
+    $calcck = uc(unpack("H2", chr($calcck)));
+
 		$count  = ord(pack("H2", $count));
 		$addy   = unpack("S", (pack("H4", $addy)));
 		$record = ord(pack("H2", $record));
 
-		my $tc = $count*2;
-		if ($rest =~ /^(.{$tc})(..)$/)
-		{
-			my ($data, $ck) = ($1, $2);
-			print STDERR "cnt=$count addy=$addy rec=$record data=$data ck=$ck\n";
+		print STDERR "cnt=$count addy=$addy rec=$record data=$data ck=$ck (calcck=$calcck) $_\n";
+		
+    # validate checksum
+    if ($ck ne $calcck)
+    {
+      print STDERR "> !!! Bad checksum! $calcck - $ck\n";
+    }
 
-			# data
-			if ($record == 0)
-			{
-				print pack("H*", $data);
-			}
-			else
-			{
-				print STDERR "Record $record: " . pack("H*", $data) . "\n";
-			}
-		}
-		else
-		{
-			die "Unknown1: $_\n";
-		}
+    # validate length
+		if ($count * 2 != length($data))
+    {
+      print STDERR "> !!! Incorrect length! $count\n";
+    }
+
+
+    # data
+    if ($record == 0)
+    {
+      print pack("H*", $data);
+    }
+    elsif ($record == 1)
+    {
+      print STDERR "> End of file\n";
+    }
+    else
+    {
+      print STDERR "> Record $record: " . pack("H*", $data) . "\n";
+    }
 	}
 	else
 	{
