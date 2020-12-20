@@ -14,13 +14,63 @@ no strict 'subs';
 #use Storable qw/freeze thaw/;
 use POSIX qw(strftime ceil floor);
 use MIME::Base64 qw(decode_base64 encode_base64);
-#use JSON::XS;
-#use IO::Socket;
-#use LWP::Simple;
 #use HTML::Parser;
 use Data::Dumper;
 #use HTML::Entities;
 
+# more easily b64 decode/encode
+sub base64
+{
+  return $_[0] =~ /^[A-Za-z0-9+\/\r\n]+={0,2}$/ ? decode_base64($_[0]) : encode_base64($_[0]);
+}
+
+# encode/decode json
+sub json
+{
+  my $data = shift;
+  my $jsonv;
+  my @modules = ("JSON::XS", "JSON");
+  my $module = pmt(@modules);
+  if (!$module)
+  {
+    eval("use $_") for @modules;
+  }
+
+  return !ref($data) ? decode_json($data) : encode_json($data);
+}
+
+# test for modules
+sub pmt
+{
+  my @loaded;
+  foreach my $module (@_)
+  {
+    if (eval("\$$module::VERSION"))
+    {
+      push @loaded, $module;
+
+      # if we only need one, bail out
+      last if !wantarray;
+    }
+  }
+
+	return wantarray ? @loaded: $loaded[0];
+}
+
+# tail -f
+sub tail
+{
+  my $fh = shift;
+  seek($fh, 0, 1);
+  return <$fh>;
+}
+
+
+# numeric sort
+sub sortn
+{
+  return sort { $a <=> $b } @_;
+}
 
 sub scale
 {
@@ -53,7 +103,7 @@ sub epoch
 # time in ms/us
 sub mstime
 {
-  use Time::HiRes;
+  u("Time::HiRes");
   return Time::HiRes::time();
 }
 
@@ -92,6 +142,7 @@ sub network
 
 sub getfile
 {
+  u("LWP::Simple");
 	my $path = shift;
 	my $file = shift;
 	if (!$file && $path =~ /([^\/]+)$/)
@@ -99,7 +150,7 @@ sub getfile
 		$file = $1;
 	}
 
-	out($file, get($path));
+	out($file, LWP::Simple::get($path));
 	return $file;
 }
 
@@ -156,10 +207,18 @@ sub ddb
 	return DBM::Deep->new($f);
 }
 
+sub get
+{
+  u("LWP::Simple");
+  return LWP::Simple::get(@_);
+}
+
 # use a module, die if it doesn't exist (or offer to install?)
 sub u
 {
 	my ($module, $installed) = @_;
+	my $version = eval("\$${module}::VERSION");
+  return $version if $version;
 
 	if (!eval("use $module; 1"))
 	{
@@ -179,7 +238,7 @@ sub bdb
 {
 	my ($f, $readonly) = @_;
 
-	eval("use BerkeleyDB");
+	u("BerkeleyDB");
 	if ($readonly && !-e $f)
 	{
 		die "BerkeleyDB `$f` does not exist!";
@@ -311,7 +370,7 @@ sub sqlite
 
 sub dbh
 {
-	eval("use DBI");
+	u("DBI");
 	my ($db, $user, $pass, $host, $type, @opts) = @_;
 	$type ||= "mysql";
 
@@ -326,13 +385,19 @@ sub dbh
 
 sub md5
 {
-	use Digest::MD5;
+	u("Digest::MD5");
 	return wantarray ? map { Digest::MD5::md5_hex($_) } @_ : Digest::MD5::md5_hex($_[0]);
+}
+
+sub sha256
+{
+	u("Digest::SHA");
+	return wantarray ? map { Digest::SHA::sha256_hex($_) } @_ : Digest::SHA::sha256_hex($_[0]);
 }
 
 sub sha1
 {
-	use Digest::SHA;
+	u("Digest::SHA");
 	return wantarray ? map { Digest::SHA::sha1_hex($_) } @_ : Digest::SHA::sha1_hex($_[0]);
 }
 
@@ -371,12 +436,12 @@ sub pmi_dl
 	my $module = shift;
 
 	my $BASE = "http://search.cpan.org";
-	eval("use LWP::Simple");
+	u("LWP::Simple");
 
 	return if pmi_installed($module);
 
 	$module =~ s/(\W)/"%" . unpack("H2", $1)/eg;
-	my $html = get("$BASE/search?query=$module&mode=all");
+	my $html = LWP::Simple::get("$BASE/search?query=$module&mode=all");
 	if ($html =~ m|<small>   <a href="([^"]+)">([^<]+)|)
 	{
 		my ($url, $name) = ($1, $2);
@@ -391,7 +456,7 @@ sub pmi_dl
 		}
 		else
 		{
-			my $html2 = get($BASE . $1);
+			my $html2 = LWP::Simple::get($BASE . $1);
 			if ($html2 =~ /href="([^"]+)">Download/)
 			{
 				my $url = $BASE . $1;
@@ -446,6 +511,23 @@ sub pmi_installed
 	return 0;
 }
 
+# extract an item from an array if it exists, removing it from the array and returning it
+# works on @ARGV by default
+sub extract
+{
+  my ($array, $match) = @_ == 2 ? @_ : (\@ARGV, @_);
+
+  my @matches;
+  for my $i (0 .. $#{$array})
+  {
+    if (ref($match) eq "Regexp" ? $array->[$i] =~ $match : $array->[$i] eq $match)
+    {
+      push @matches, splice(@$array, $i, 1);
+    }
+  }
+  return wantarray() ? @matches : $matches[0];
+}
+
 # math functions
 use constant PI => 4 * atan2(1, 1);
 sub pi { 355/113 }
@@ -456,6 +538,7 @@ sub log10 { log($_[0])/log(10) }
 
 # add new functions here   #
 # XXX END OF NEW FUNCTIONS y.pm ###
+# -samyk
 
 
 1;
