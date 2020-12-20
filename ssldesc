@@ -18,6 +18,7 @@ my %cmds = (
   'ec'  => [qw/openssl ec -in {FILENAME} -text -param_out/],
   'crt' => [qw/openssl x509 -in {FILENAME} -text -noout/],
   'p12' => [qw/openssl pkcs12 -info -in {FILENAME}/],
+  'pfx' => [qw/openssl pkcs12 -info -in {FILENAME}/],
 );
 
 # go through all files
@@ -61,5 +62,9 @@ sub detect
       $type =~ s/\$1/lc($tmp)/eg;
     }
   }
+
+  # if no type, let's try extension (extension could be wrong so this should be backup)
+  $type = $1 if !$type && $file =~ /\.(\w+)$/ && $cmds{$1};
+
   return $type;
 }
