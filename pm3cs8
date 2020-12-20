@@ -1,8 +1,9 @@
 #!/usr/bin/perl
 #
-# Convert proxmark3 trace to cs8 (Complex 8-bit signed integer samples, eg HackRF IQ format)
-# or convert a .wav file to cs16 (Complex 16-bit signed integer samples, eg BladeRF IQ format)
-# The .cs8 and .cs16 can then be used via Inspectrum
+# Convert proxmark3 trace or wav files to formats to be used by Inspectrum
+#
+# Converts proxmark3 trace to cs8 (Complex 8-bit signed integer samples, eg HackRF IQ format)
+# and .wav to cs16 (Complex 16-bit signed integer samples, eg BladeRF IQ format)
 #
 # -samy kamkar, https://samy.pl
 
@@ -11,7 +12,7 @@ my $SOX = "sox";
 
 use strict;
 
-die "usage: $0 [/path/to/sox (optional)] <pm3.trace or file.wav> [...]\n" unless @ARGV;
+die "usage: $0 [/path/to/sox (optional)] <pm3.trace or file.wav> [...more traces]\n" unless @ARGV;
 $SOX = shift if $ARGV[0] =~ m/(?:[\/\\]|^)sox$/;
 trace_conv($_) for @ARGV;
 
