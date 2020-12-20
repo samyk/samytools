@@ -128,7 +128,8 @@ unless ($baseconv || $baseconv =~ /^calc/i) {
 $baseconv =~ /^(.)(.)$/;
 my ($first, $second) = ($conv{$1} . "2bin", "bin2" . $conv{$2});
 
-my $nl = -t STDOUT ? "\n" : "";
+# use newlines if we're going to STDOUT or we have more than one value
+my $nl = -t STDOUT || @ARGV > 1 ? "\n" : "";
 foreach my $value (@values) {
   $value = eval($value) if $value =~ /^\d[\d\+\-\.\/\*\^\&\|\!\(\)]*$/ && $value !~ /^\w+$/; # otherwise 00xx gets treated as octal
   print &{$second}(&{$first}($value)) . $nl;
