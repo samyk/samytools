@@ -9,15 +9,36 @@
 # -samy kamkar 2020/06/20
 
 my $compile = $ARGV[0] eq "-c" && shift;
-my $platformio = -e "platformio.ini";
-my $name = shift || "p"; # particle board name
-my $board = "photon";
+my $pio = -e "platformio.ini"; # true if we are working with pio
+my $name = shift || "desk" || "p"; # particle board name
+my $board = shift || "photon";
 
-if ($platformio)
+my $PARTICLE = "particle";
+my $PLATFORMIO = "platformio";
+
+# platformio
+if ($pio)
 {
-  system($compile ? qw/platformio run -v/ : qw/platformio run -v --target upload/);
+  system($compile ? ($PLATFORMIO, qw/run -v/) : ($PLATFORMIO, qw/run -v --target upload/));
 }
+
+# particle
 else
 {
-  system($compile ? ("particle", "compile", $board) : ("particle", "flash", $name));
+  # dfu over usb
+  if ($name eq "usb")
+  {
+    my $out = `$PARTICLE compile $board`;
+    print $out;
+    if ($out =~ /saved firmware to: (\S+)/i)
+    {
+      system($PARTICLE, qw/flash --usb/, $1);
+    }
+  }
+
+  # flash over network
+  else
+  {
+    system($compile ? ($PARTICLE, qw/-v compile/, $board) : ($PARTICLE, qw/-v flash/, $name));
+  }
 }
