@@ -18,8 +18,8 @@ my @inkscape = (qw|
   /Applications/Inkscape.app/Contents/MacOS/Inkscape
 |, map { "$_/inkscape" } split(/:/, $ENV{PATH}));
 
-# options to pass to inkscape
-my @opts = qw/-z -l/;
+# options to pass to inkscape - order matters
+my @opts = qw/--convert-dpi-method=none -z -l/;
 
 =cut
 
@@ -105,6 +105,7 @@ sub convert
   ($to = $from) =~ s/\.\w+$/.svg/ unless defined($to);
 
   print "Converting $from -> $to!\n";
+  print STDERR "$INKSCAPE @opts $to $from\n";
   system($INKSCAPE, @opts, $to, $from);
 }
 
