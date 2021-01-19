@@ -98,6 +98,18 @@ This is a collection of simple but effective tools to use on the command line to
 `ipfwd 0` # disable ip forwardwing
 `ipfwd 5 10` # enable for 5 seconds, disable for 10 seconds, enable on exit
 
+**j** - join multiple arguments or stdin together into single string with optional join parameter
+```
+tigerblood:/b$ j 0 1 1 1 1 0 0 1 0 1 1 0 1 1 1 1
+0111100101101111
+
+tigerblood:/b$ j -s ,
+first
+second
+third
+first,second,third
+```
+
 **nocolor** - removes color from piped input, useful if you're trying to parse data where color codes are interfering
 `command_that_has_colored_output | nocolor | grep something`
 
