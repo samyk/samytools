@@ -1,0 +1,106 @@
+#!/usr/bin/perl
+#
+# send keys to an application to remotely control it (macOS-only currently)
+# -samy kamkar | 2021/01/18 | https://samy.pl
+# Example:
+#
+#  appkey Logic2 ctrl r # starts/stops recording in Saleae Logic
+#  appkey -g cmd c      # system copy
+
+use strict;
+use Getopt::Long qw/GetOptions/;
+
+my $OSASCRIPT = "osascript"; # path to osascript
+my %opts = (
+  "cmd"     => "command",
+  "command" => "command",
+  "ctrl"    => "control",
+  "control" => "control",
+  "opt"     => "option",
+  "option"  => "option",
+  "shift"   => "shift",
+);
+
+# get options
+my %conf = opts();
+
+# send keys
+tx();
+
+#################################
+
+sub opts
+{
+  my %conf;
+  my $global = 0;
+  GetOptions(\%conf, "dontreturn", "global") || usage();
+  $conf{return} = !$conf{dontreturn};
+  $conf{app} = shift(@ARGV) if !$conf{global};
+
+  # we still need the keys to send
+  usage() if !@ARGV;
+
+  # get our keys
+  my $join = ", ";
+  for (@ARGV)
+  {
+    # special cmd, eg 'opt'
+    if ($opts{lc()})
+    {
+      $conf{ops} .= "$opts{lc()} down" . $join;
+    }
+    else
+    {
+      $conf{keys} .= $_;
+    }
+  }
+  $conf{ops} =~ s/$join$//;
+  return %conf;
+}
+
+sub usage
+{
+  die "usage: $0 <-d (don't return to prev app)> <-g (global) | app name> [cmd] [shift] [opt] [ctrl] <key> [keys...]\n";
+}
+
+sub tx
+{
+  # get our osa (ignore app line unless we have app to send)
+  my $osa;
+  while (<DATA>)
+  {
+    # ignore comments
+    next if m~^\s*(#|//)~;
+
+    # variable cmds
+    s~
+      \{\{                  # begin condition {{
+        \$(\w+) \s* \? \s*  # ternary: $variable ?
+        (.*)                # then
+        (?:\s*:\s*(.*))?    # : optional else
+      \}\}
+    ~ $conf{$1} ? $2 : $3 ~xge;
+
+    # replace variables
+    s/\$(\w+)/$conf{$1}/g;
+
+    $osa .= $_;
+  }
+  system($OSASCRIPT, "-e", $osa);
+}
+
+__DATA__
+
+tell application "System Events"
+  # store current window
+  set currentProc to name of first process where it is frontmost
+
+  # open app
+  {{$app ? tell application "$app" to activate}}
+
+  # send keystrokes
+  keystroke "$keys" {{$ops ? using {$ops}}}
+end tell
+
+# return to old window
+{{$return ? tell application currentProc to activate}}

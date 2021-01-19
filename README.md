@@ -27,6 +27,9 @@ This is a collection of simple but effective tools to use on the command line to
 `all 'tar -zxvf FILE' *tgz`
 
 **ana** - 
+
+**appkey** - send keystrokes or shortcut keys to specific app or globally to control them programmatically
+
 **arduino** -
 
 **asm** - compiles, links and executes .asm file via `nasm`
