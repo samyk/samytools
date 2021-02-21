@@ -18,6 +18,72 @@ use MIME::Base64 qw(decode_base64 encode_base64);
 use Data::Dumper;
 #use HTML::Entities;
 
+=cut
+# functions typically accept one or more params
+# if it can support multiple params to do the same op on, it should return a list of the results UNLESS !wantaray and only one param, in which case it should return the single value
+# this allows us to do: $str = chomps("hi\n"); # $str will be "hi" instead of 1 (scalar value of single element list)
+# but still can do: @str = chomps("hi\n", "bye\n"); # @str will be ("hi", "bye")
+# and: $cnt = chomps("hi\n", "bye\n"); # $cnt = 2
+sub template
+{
+}
+=cut
+
+# helper for returning a single value vs list so single value list doesn't get treated in scalar context
+# caveat - multi only runs the func once if multiple
+# mapw { block } list
+sub mapw (&@)
+{
+  my $fn = shift;
+  # if we don't want an array (we want scalar) and there's only one value, return it (otherwise return the full list which gets treated as numeric)
+  !wantarray && @_ == 1 ? &$fn($_ = $_[0]) : map &$fn($_), @_
+}
+
+# chomp strings inline and return
+sub chomps
+{
+  mapw {
+      substr($_, length() - 1, 1) eq $/
+        ? substr($_, 0, length() - 1)
+        : $_
+    } @_
+}
+
+# multiw(wantarray, list)
+sub multiw
+{
+  !wantarray && @_ == 1 ? $_[0] : @_
+}
+
+# return file type
+sub file
+{
+  my $file = shift;
+  my $FILE_PATH = "file";
+  my @FILE_OPTS = qw/-b/;
+  return chomps(run($FILE_PATH, @FILE_OPTS, $file));
+
+#  open(my $fh, "-|", $FILE_PATH, @FILE_OPTS, $file);
+#  chomp(my $out = join "", <$fh>);
+#  close($fh);
+
+#  return $out;
+}
+
+# safe run
+sub run
+{
+  open(my $fh, "-|", @_);
+  return join "", <$fh>;
+}
+
+# convert html to text
+sub html2text
+{
+  u("HTML::Entities");
+  return HTML::Entities::decode_entities(shift);
+}
+
 # more easily b64 decode/encode
 sub base64
 {
@@ -28,6 +94,7 @@ sub base64
 sub json
 {
   my $data = shift;
+
   my $jsonv;
   my @modules = ("JSON::XS", "JSON");
   my $module = pmt(@modules);
@@ -35,6 +102,9 @@ sub json
   {
     eval("use $_") for @modules;
   }
+
+  # read in file if file passed
+  $data = cat($data) if -f $data;
 
   return !ref($data) ? decode_json($data) : encode_json($data);
 }
@@ -142,7 +212,7 @@ sub network
 
 sub getfile
 {
-  u("LWP::Simple");
+  u("LWP::Simple", []);
 	my $path = shift;
 	my $file = shift;
 	if (!$file && $path =~ /([^\/]+)$/)
@@ -209,18 +279,34 @@ sub ddb
 
 sub get
 {
-  u("LWP::Simple");
+  u("LWP::Simple", []);
   return LWP::Simple::get(@_);
 }
 
 # use a module, die if it doesn't exist (or offer to install?)
+# usage: u(module, [version], [list of funcs OR arrayref of funcs], dont-install)
 sub u
 {
-	my ($module, $installed) = @_;
+	my ($module, @rest) = @_;
+
+  # perl supports: use module [version] [list]
+  # grab version if we have it
+	my $wantver = $rest[0] =~ /^\d+([._]\d+)+$/ ? shift(@rest) : 0;
+  # grab installed if we have it
+	my $installed = $rest[-1] == /^[01]$/ ? pop(@rest) : 0;
+
+  # the rest of args are funcs to pass, if any
+	my @funcs = ref($rest[0]) eq "ARRAY" ? @{$rest[0]} : @rest;
+
+  # get module version (if loaded)
 	my $version = eval("\$${module}::VERSION");
+
+  # return if already loaded
   return $version if $version;
 
-	if (!eval("use $module; 1"))
+  # try to use the module
+  my $usestr = "use $module $wantver " . (@rest ? "qw/@funcs/" : "") . "; 1";
+	if (!eval($usestr))
 	{
 		if ($installed)
 		{
@@ -436,7 +522,7 @@ sub pmi_dl
 	my $module = shift;
 
 	my $BASE = "http://search.cpan.org";
-	u("LWP::Simple");
+	u("LWP::Simple", []);
 
 	return if pmi_installed($module);
 
