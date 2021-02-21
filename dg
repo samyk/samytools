@@ -1,0 +1,32 @@
+#!/usr/bin/perl
+#
+# get datasheets
+# -samy kamkar 2021/02/21
+
+use y;;;
+use strict;
+
+my $DIR = '/Users/samy/d';
+die "usage: $0 <url ...>\n" unless @ARGV;
+
+for my $url (@ARGV)
+{
+  (my $fn) = ($url =~ m,/([^/?]+)(?:$|\?),);
+
+  my $path = "$DIR/$fn";
+  if (-e $path)
+  {
+    print STDERR "$path exists - skipping $url\n";
+    next;
+  }
+
+  print "$path < $url\n";
+  getfile($url, "$DIR/$fn");
+
+  my $type = file($path);
+  print "$type\n";
+  if ($type !~ /^PDF/)
+  {
+    print STDERR "ERROR: not pdf\n";
+  }
+}
