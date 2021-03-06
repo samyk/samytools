@@ -3,4 +3,4 @@
 # remove ANSI color from data, eg `command | nocolor`
 # -samy kamkar 2020/12/06
 
-s/\e\[(?:\d+(?:;\d+)?)?m|\e\[K//g
+s/\e[\[\]](?:\d+(?:;\d+)*)?m|\e\[K//g
