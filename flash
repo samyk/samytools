@@ -1,20 +1,31 @@
 #!/usr/bin/perl
 #
-# compile or flash code using particle or platformio
+# execute or compile or flash code, locally, using particle, or platformio
 #
 # used in vim with ctrl+k/ctrl+l:
-# nnoremap <C-k> :w \| !flash -c<CR>
-# nnoremap <C-l> :w \| !flash<CR>
+# nnoremap <C-k> :w \| !flash -c %p<CR>
+# nnoremap <C-l> :w \| !flash %p<CR>
 #
 # -samy kamkar 2020/06/20
 
+#use Data::Dumper;
+#open F,">/tmp/dump";print F Dumper(\@ARGV) .$/;print F Dumper(\%ENV); close(F);
+
+use y;;;
+use strict;
+
+my $PKG = "package.json";
+
 my $compile = $ARGV[0] eq "-c" && shift;
 my $pio = -e "platformio.ini"; # true if we are working with pio
-my $name = shift || "desk" || "p"; # particle board name
+my $npm = -e $PKG && json($PKG)->{scripts}{start};
+my $name = shift || "desk" || "p"; # particle board name or file name
+my ($ext) = ($name =~ /\.(\w+)$/);
 my $board = shift || "photon";
 
 my $PARTICLE = "particle";
 my $PLATFORMIO = "platformio";
+my $CC = "gcc";
 
 # platformio
 if ($pio)
@@ -22,8 +33,46 @@ if ($pio)
   system($compile ? ($PLATFORMIO, qw/run -v/) : ($PLATFORMIO, qw/run -v --target upload/));
 }
 
+# npm start
+elsif ($npm)
+{
+  system(qw/npm start/);
+}
+
+# pl file
+elsif ($ext eq "pl")
+{
+  system("perl", $name);
+}
+
+# js file
+elsif ($ext eq "js")
+{
+  system("node", $name);
+}
+
+# c/cpp file
+elsif ($ext eq "c" || $ext eq "cpp")
+{
+  my $code = code($name);
+
+  # particle/arduino code
+  $code =~ /void\s+setup\s*\(/ ? particle() : c();
+}
+
 # particle
 else
+{
+  particle();
+}
+
+sub c
+{
+  system($CC, $name, "-o", "$name.bin");
+  system($name =~ m|^/| ? "$name.bin" : "./$name.bin");
+}
+
+sub particle
 {
   # dfu over usb
   if ($name eq "usb")
@@ -41,4 +90,13 @@ else
   {
     system($compile ? ($PARTICLE, qw/-v compile/, $board) : ($PARTICLE, qw/-v flash/, $name));
   }
+}
+
+sub code
+{
+  my $code = cat($name);
+  # remove comments
+  $code =~ s~/\*.*?\*\/~~g;
+  $code =~ s~//.*?\n~~g;
+  return $code;
 }
