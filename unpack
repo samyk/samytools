@@ -27,6 +27,7 @@ my %formats = (
 my %exts = (
   "7z"  => "7-zip",
   "gz"  => "gzip",
+  "pkg" => "xar",
 );
 
 # this helps us ensure we're only looking at longer formats first - for example, match "7-zip" before "zip"
