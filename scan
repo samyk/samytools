@@ -2,7 +2,14 @@
 
 # -samy kamkar
 
-my @devs = @ARGV ? @ARGV : qw/bridge0 en0 en1 bridge100 vnic0 vnic1 eth0 eth1/;
+use strict;
+use Socket;
+
+require "$ENV{HOME}/b/macs.pl";
+my %known = macs();
+
+#my @devs = @ARGV ? @ARGV : qw/bridge0 en0 en1 bridge100 vnic0 vnic1 eth0 eth1/;
+my @devs = @ARGV ? @ARGV : map { /^(\w+)/ ? $1 : () } `ifconfig -a`;
 
 #arp();
 
@@ -14,8 +21,15 @@ foreach my $dev (@devs)
 	if ($ip)
 	{	
 		print "Scanning $dev $ip.0/24\n";
-		`nmap -sn $ip.0/24`;
-		#arp();
+		#`nmap -sn $ip.0/24`;
+		socket(SOCKET, PF_INET, SOCK_DGRAM, getprotobyname("udp")) || die $!;
+		my $zero = "";
+		my $port = 1337;
+		for my $octet (0 .. 255)
+		{
+			my $addr = sockaddr_in($port, inet_aton("$ip.$octet"));
+			send(SOCKET, $zero, 0, $addr);
+		}
 	}
 }
 arp();
@@ -25,15 +39,27 @@ sub arp
   foreach my $match (`arp -na`)
   {
     chomp($match);
+    $match =~ s/ \[ethernet\]|^\? | ifscope|[()]| permanent//g;
     if ($match =~ /at (\w\S+)/ && $1)
     {
-      my @oui = `oui $1`;
+    	my $mac = join ":", map { sprintf("%02s", $_) } split /:/, lc $1;
+      my @oui = `oui $mac`;
       shift @oui;
-      splice @oui, 1, 1;
+      my $oui = "$oui[0] $oui[-1]";
+			$oui =~ s/\r|\n//g;
 
-      $match .= ": " . join(", ", map { s/\r//g; chomp; $_ } @oui) if @oui;
+			#$match .= ": " . join(", ", map { s/\r//g; chomp; $_ } @oui) if @oui;
+      $match =~ s/ at \w\S+/ $mac/;
+      $match =~ s/ on//g;
+      $match =~ s/^(\S+)/sprintf("%-15s", $1)/e;
+
+			# do we know it?
+			$match .= $known{$mac} ? " [$known{$mac}]" : " [?????]";
+
+			# add oui
+      $match .= " $oui" if @oui;
     }
-    print "$match\n" unless $match =~ /[<(]incomplete[)>]|ff:ff:ff:ff:ff:ff/i;
+    print "$match\n" unless $match =~ /incomplete|ff:ff:ff:ff:ff:ff/i;
   }
 }
 __DATA__
