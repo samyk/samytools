@@ -1,0 +1,18 @@
+#!/usr/bin/perl
+#
+# convert mks901p analog output to torr
+# -samy kamkar, 2020/01/11
+
+use strict;
+die "usage: $0 [-r (reverse)] <analog voltage>\n" unless @ARGV;
+my $BASE = "torr";
+
+foreach my $v (@ARGV)
+{
+  my $torr = 10 ** ($v - 6);
+  print "$v: " if @ARGV > 1;
+  my $e = sprintf("%e", $torr);
+  $e =~ s/(?<!\.)0+e/e/g;
+  $e =~ s/0+(\d+)$/$1/;
+  printf("$torr $BASE ($e $BASE)\n", $torr);
+}
