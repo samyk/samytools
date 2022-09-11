@@ -1,0 +1,39 @@
+#!/usr/bin/perl
+#
+# read yaml file, print out values that match <key>
+# -samy kamkar 2021/01/29
+
+use strict;
+
+die "usage: $0 <key> [file]\n" unless @ARGV;
+
+my ($key, $file) = @ARGV;
+my $readval;
+
+# data piped
+if (!-t STDIN)
+{
+  parse($_, $key) while <>;
+}
+else
+{
+  open(F, "<$file");
+  parse($_, $key) while <F>;
+}
+
+sub parse
+{
+  my ($line, $key) = @_;
+  if ($line =~ /name: .*$key.*/)
+  {
+    $readval = 1;
+  }
+  elsif ($readval)
+  {
+    if (/value: (.*)/)
+    {
+      print "$1\n";
+      $readval = 0;
+    }
+  }
+}

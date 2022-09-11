@@ -24,7 +24,10 @@ if ($intxt)
 else
 {
   use LWP::Simple;
-  $oui = LWP::Simple::get("http://standards-oui.ieee.org/oui.txt");
+  $oui = LWP::Simple::get("https://standards-oui.ieee.org/oui.txt");
+
+  die "no oui data: $! $@" unless length($oui);
+
   open(OUI, ">oui.txt." . time());
   print OUI $oui;
   close(OUI);
@@ -50,3 +53,11 @@ foreach (split /\n/, $oui)
 }
 if ($mac) { $h{lc $mac} = $company }
 untie %h;
+
+=cut
+use LWP::UserAgent;
+my $agent = LWP::UserAgent->new;
+my $response = $agent->get("https://standards-oui.ieee.org/oui.txt");
+$response->is_success or die $response->status_line;
+print $response->decoded_content;
+=cut

@@ -21,3 +21,4 @@ foreach (@ARGV)
 print "Count: $count\n";
 print "Total: $sum\n";
 print "Average: " . int($sum/$count) . "\n";
+print "Average: " . $sum/$count . "\n";

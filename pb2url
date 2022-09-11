@@ -51,6 +51,10 @@ while (1)
     my $nurl = "https://en.wikipedia.org/wiki/$1";
     system("echo '$nurl' | pbcopy");
   }
+  elsif ($url =~ s|#:~:text=\S*||)
+  {
+    system("echo '$url' | pbcopy");
+  }
 
   #https://www.dropbox.com/s/gegnifzzcv1wepe/ds1.png?dl=0
 

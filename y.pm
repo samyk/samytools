@@ -35,6 +35,7 @@ sub template
 sub mapw (&@)
 {
   my $fn = shift;
+
   # if we don't want an array (we want scalar) and there's only one value, return it (otherwise return the full list which gets treated as numeric)
   !wantarray && @_ == 1 ? &$fn($_ = $_[0]) : map &$fn($_), @_
 }
@@ -70,10 +71,30 @@ sub file
 #  return $out;
 }
 
+# safe run (verbose)
+sub runv
+{
+  open(my $fh, "-|", @_);
+  print STDERR join(" ", map { "'$_'" } @_), "\n";
+  return join "", <$fh>;
+}
+
 # safe run
 sub run
 {
   open(my $fh, "-|", @_);
+  return join "", <$fh>;
+}
+
+# safe run but support a string and interpolate, eg: safe_run(
+# useful for just doing: runp('$FFMPEG --something $unsafe_user_input @list'), 
+# runp will return the output but will interpolate the variables itself and split the string by whitespace BEFORE interpolation, thus making the command above safe (the $unsafe_user_input will be treated as a single paramenter while the array gets split into each item
+sub UNFINISHED_runp
+{
+  no strict;
+  my @cmd = map { s/\$(\w+)/${$1}/eg; /^\@(\w+)$/ ? @{$_} : $_ } split(/\s+/, $_[0]);
+  open(my $fh, "-|", @cmd);
+  print STDERR join(" ", map { "'$_'" } @cmd), "\n";
   return join "", <$fh>;
 }
 
@@ -399,10 +420,10 @@ sub path
   return $_[0];
 }
 
-# cat(filename[, 1 to not fail[, 1 to not interpolate ~]])
+# cat(filename[, 1 to not fail[, 1 to not interpolate ~[, lines]]])
 sub cat
 {
-  my ($dir, $nofail, $nointerp) = @_;
+  my ($dir, $nofail, $nointerp, $lines) = @_;
 
   $dir = $nointerp ? $dir : path($dir);
 	if (!open(F, "<$dir") && !$nofail)
@@ -410,7 +431,8 @@ sub cat
 		print STDERR "Can't read $dir: $!";
 		return;
 	}
-	my @data = <F>;
+
+	my @data = $lines ? map { <F> } 0 .. $lines : <F>;
 	close(F);
 
 	return wantarray ? @data : join "", @data;
@@ -418,7 +440,22 @@ sub cat
 
 sub scat
 {
-  return map { chomp; $_ } cat(@_);
+  return map { s/\r?\n$//; $_ } cat(@_);
+}
+
+# return ordered array of csv header
+sub csvheader
+{
+  my ($file, $delim) = @_;
+  $delim = ',' unless length($delim);
+
+  # get first line from file
+  my ($line) = scat($_[0], undef, undef, 1);
+
+  # grab our header
+  my @hdr = map { s/^"(.*)"$/$1/; $_ } split /$delim/, $line;
+
+  return @hdr;
 }
 
 # return array of hashes/arrays of csv data
@@ -436,11 +473,25 @@ sub csv
   }
 
   # grab our header
-  my @hdr = split /$delim/, shift(@lines);
+  my @hdr = map { s/^"(.*)"$/$1/; $_ } split /$delim/, shift(@lines);
+
   my @return;
   foreach my $row (@lines)
   {
-    my @data = split /$delim/, $row;
+    my @data;
+    while (length $row)
+    {
+      if ($row =~ s/^"(.*?)"(?:$delim|$)|^(.*?)(?:$delim|$)//)
+      {
+        #print "k - $1 - $2\n";
+        push @data, $1 . $2;
+      }
+      else
+      {
+        die "weird row - $row\n";
+      }
+    }
+    #my @data = split /$delim/, $row;
     push @return, { map { $hdr[$_] => $data[$_] } 0 .. $#hdr };
     $return[-1]{_orig} = $row;
   }
@@ -1048,6 +1099,16 @@ sub _NT_waitpid { my ($s, $pid, $par) = @_;
   }
 }
 
+sub cdv
+{
+  print STDERR "> cd $_[0]\n";
+  return chdir($_[0]);
+}
+
+sub cd
+{
+  return chdir($_[0]);
+}
 
 ### XXX ###
 ## note this is a different package, please move new functions into the `y` package

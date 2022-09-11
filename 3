@@ -1,6 +1,7 @@
 #!/opt/local/bin/perl
 
 use bignum;
+use Math::Trig;
 #use y;;;
 use constant PI => 4 * atan2(1, 1);
 #sub pi { 355/113 }
@@ -10,10 +11,10 @@ sub tan { sin($_[0]) / cos($_[0])  }
 sub log10 { log($_[0])/log(10) }
 
 my $debug = 0;
-my $VERSION = "0.42";
+my $VERSION = "0.43";
 #
 # '3', by samy [cp5@LucidX.com]
-# ver 0.42  - April 14, 2002 - 
+# ver 0.43  - April 14, 2002 - 
 # TODO/changeLog is at http://code.lucidx.com/TODO.3
 #
 # thanks to cseg (Fred Souza) for his help

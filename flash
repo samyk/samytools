@@ -19,6 +19,8 @@ my $PKG = "package.json";
 my $compile = $ARGV[0] eq "-c" && shift;
 my $pio = -e "platformio.ini"; # true if we are working with pio
 my $npm = -e $PKG && json($PKG)->{scripts}{start};
+my $SBUILD = "samybuild";
+my $sbuild = -e $SBUILD;
 my $name = shift || "desk" || "p"; # particle board name or file name
 my ($ext) = ($name =~ /\.(\w+)$/);
 my $board = shift || "photon";
@@ -27,8 +29,14 @@ my $PARTICLE = "particle";
 my $PLATFORMIO = "platformio";
 my $CC = "gcc";
 
+# if samybuild file exists
+if ($sbuild)
+{
+  system($compile ? ("perl", $SBUILD, "-r") : ("perl", $SBUILD));
+}
+
 # platformio
-if ($pio)
+elsif ($pio)
 {
   system($compile ? ($PLATFORMIO, qw/run -v/) : ($PLATFORMIO, qw/run -v --target upload/));
 }

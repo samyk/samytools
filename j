@@ -11,7 +11,7 @@ my %o;
 
 getopts('hs:', \%o);
 usage() if $o{h};
-my $join = $o{s};
+my $join = defined $o{s} ? $o{s} : ' ';
 
 my @out = @ARGV ? @ARGV : map { chomp; $_ } <>;
 print join($join, @out);

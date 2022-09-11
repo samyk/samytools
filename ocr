@@ -26,7 +26,7 @@ if (!-e $file)
 
 my $img = "$DIR/.ocr.new.$rand.png";
 system($CONVERT, $file, @convopts, $img);
-system("open", $img);
+#system("open", $img);
 
 # run tesseract and output to file, it adds .txt to end
 my $out = "$DIR/.ocr.out.$rand";

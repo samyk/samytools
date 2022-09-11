@@ -1,0 +1,1422 @@
+#!/usr/bin/perl
+
+use strict;
+
+die "usage: $0 <soundcloud url>\n" unless @ARGV;
+
+foreach my $url (@ARGV)
+{
+	my $s = samyweb->new();
+
+	# https://soundcloud.com/pixl-music/adam-k-kaskade-raining-pixl
+print "$url\n";
+	my $html = $s->get($url);
+	my ($sc) = ($html =~ m|<script src="(https://a2\.sndcdn\.com/assets/sc-\w+\.js)">|);
+	die "\n\n$html\ncouldn't find sc-*.js\n" if !$sc;
+
+	# https://a2.sndcdn.com/assets/sc-9dedec9b.js
+print "$sc\n";
+	$html = $s->get($sc);
+	my ($cid) = ($html =~ m|g="(\w+)",h=|);
+print "$cid\n";
+	die "\n\n$html\ncouldn't find client_id (g="...",h=)\n" if !$cid;
+
+	# https://api.soundcloud.com/resolve?url=https%3A//soundcloud.com/pixl-music/adam-k-kaskade-raining-pixl&_status_code_map%5B302%5D=200&_status_format=json&client_id=b45b1aa10f1ac2941910a7f0d10f8e28
+	$url =~ s/:/%3A/;
+	my $nurl = "https://api.soundcloud.com/resolve?url=$url&_status_code_map%5B302%5D=200&_status_format=json&client_id=$cid";
+	$html = $s->get($nurl);
+print "$nurl\n";
+	my ($loc) = ($html =~ m|"location":"(.*?)"|);
+	my ($tid, $uid) = ($loc =~ m[/tracks/(\d+)|/users/(\d+)]);
+print "$loc\n";
+print "$tid || $uid\n";
+	die "\n\n$html\ncouldn't find location\n" if !$loc;
+
+	my @tid;
+	push(@tid, $tid) if $tid;
+	my $user;
+
+	# if spotlight, get list of tracks
+	if ($uid)
+	{
+		# https://api.soundcloud.com/e1/users/4120328/spotlight?limit=10&offset=0&linked_partitioning=1&client_id=b45b1aa10f1ac2941910a7f0d10f8e28
+		#$nurl = "https://api.soundcloud.com/e1/users/$uid/spotlight?limit=100&offset=0&linked_partitioning=1&client_id=$cid";
+		$nurl = "https://api.sndcdn.com/e1/users/$uid/sounds?limit=100&offset=0&linked_partitioning=1&client_id=$cid";
+		$html = $s->get($nurl);
+
+print "html1=$html\n";
+		if (!$user && $html =~ /<username>(.*?)</) { $user = $1 }
+
+		push @tid, $1 while ($html =~ s/"track","id":(\d+)//);
+		push @tid, $1 while ($html =~ s/<id type="integer">(\d+)//);
+print "k $1 (@tid)\n";
+	}
+
+	foreach my $tid (@tid)
+	{
+			next if $tid == $uid;
+print "new tid $tid\n";
+			# https://api.soundcloud.com/tracks/17487237?client_id=b45b1aa10f1ac2941910a7f0d10f8e28
+			$loc = "https://api.soundcloud.com/tracks/$tid?client_id=$cid";
+			$html = $s->get($loc);
+			my ($title) = ($html =~ m|<title>(.*?)</title>|);
+			$title = decode_entities($title);
+			$title =~ s/[^\w &-]//g;
+
+			$user = decode_entities($user);
+			$user =~ s/[^\w &.-]//g;
+			$title = "$user - $title" if $user;
+			next if -e "$title.mp3";
+print "$title ($tid)\n";
+
+			# https://api.soundcloud.com/i1/tracks/17487237/streams?client_id=b45b1aa10f1ac2941910a7f0d10f8e28
+			$nurl = "https://api.soundcloud.com/i1/tracks/$tid/streams?client_id=$cid";
+			$html = $s->get($nurl);
+print "html2=$html\n";
+			my ($mp3) = ($html =~ m|:"(.*?)"|);
+			if (!$mp3)
+			{
+				print "\n\n$html\ncouldn't find mp3\n";
+				next;
+			}
+
+			$mp3 =~ s/\\u0026/&/g;
+print "$mp3\n";
+			my $data = $s->get($mp3);
+			if ($data)
+			{
+					open(F, ">$title.mp3") || die "Can't open $title.mp3 for writing: $!";
+					print F $data;
+					close(F);
+			}
+	}
+	
+}
+# by samy
+
+package samyweb;
+
+$|++;
+use CPAN;
+use strict;
+no strict 'subs';
+use Data::Dumper;
+use Term::ReadKey;
+use HTTP::Cookies;
+use LWP::UserAgent;
+use Term::ANSIColor;
+use HTML::TokeParser;
+use HTTP::Request::Common;
+
+my %params = map { $_ => 1 } qw/
+	proxy
+	user_agent
+	include
+	ua_timeout
+	base_url
+	log_pages
+	always_wait
+	test_message
+	no_proxies
+	decaptcher_creds
+	pre_login_url
+	pre_login_post
+	pre_login_wait
+	pre_login_verify_regexp
+	pre_login_referer
+	pre_login_regexp
+	login_url
+	login_post
+	login_wait
+	login_verify_regexp
+	login_referer
+	login_regexp
+	post_post_search_url
+	post_post_search_post
+	post_post_search_regexp
+	post_post_search_onetime_regexp
+	post_search_url
+	post_search_post
+	post_search_regexp
+	post_search_onetime_regexp
+	message_url
+	message_post
+	message_wait
+	message_referer
+	message_regexp
+	message_verify_regexp
+	message_remove_regexp
+	message_ignore_regexp
+	message_sentto
+	search_from
+	search_until
+	search_post
+	search_url
+	search_max
+	search_start
+	search_file
+	search_regexp
+	search_onetime_regexp
+	search_increment
+	search_referer
+	no_search
+	no_message
+	no_debug
+/;
+
+# samyweb->new("optional.conf", { default => params })
+sub new
+{
+	my ($class, $conf, $params) = @_;
+	my $s = {
+		_messages_text => 'messages'
+	};
+
+	bless $s, $class;
+
+	# add any new params
+	$s->add_params($params->{new_params});
+
+	# first read our config/params
+	$s->read_conf($conf, $params);
+	
+	# do some error checking
+	if ($conf)
+	{
+		$s->check_conf();
+	}
+	elsif (!defined($s->p('no_debug')))
+	{
+		$s->p('no_debug', 1);
+	}
+	
+	# now get our UA setup for some pwnage
+	$s->setup_ua();
+
+	# if have a sent to file, read it in
+	$s->read_sentto();
+
+	# newline
+	$s->t();
+	
+	return $s;
+}
+
+sub add_params
+{
+	my ($s, $params) = @_;
+	
+	foreach my $param (@{$params})
+	{
+		$params{$param} = 1;
+	}
+	
+	return 1;
+}
+
+sub sentto
+{
+	my ($s, $data) = @_;
+	
+	if (ref($data) eq "ARRAY")
+	{
+		$data = join("&", @{$data});
+	}
+
+	return $s->{sentto}->{$data};
+}
+
+sub write_sentto
+{
+	my ($s, $data) = @_;
+	
+	# make it storable
+	if (ref($data) eq "ARRAY")
+	{
+		$data = join("&", @{$data});
+	}
+	
+	# first check if we already sent to them
+	if ($s->sentto($data))
+	{
+		# we already sent!
+		return 1;
+	}
+
+	# store it in memory
+	$s->{sentto}->{$data} = 1;
+
+	# now write to file IF we have one
+	my $sentto = $s->p(message_sentto);
+	unless ($sentto)
+	{
+		return 0;
+	}
+	
+	unless (open(SENT, ">>$sentto"))
+	{
+		$s->d("Can't open `message_sentto` $sentto for writing: $!");
+		return undef;
+	}
+	
+	print SENT "$data\n";
+	close(SENT);
+	
+	return 0;
+}
+
+sub read_sentto
+{
+	my ($s) = @_;
+	
+	my $sentto = $s->p(message_sentto);
+	if ($sentto)
+	{
+		unless (open(SENT, "<$sentto"))
+		{
+			return 0;
+		}
+		while (<SENT>)
+		{
+			chomp;
+			s/\r$//;
+			$s->{sentto}->{$_}++;
+			$s->{stats}->{already}++;
+		}
+		close(SENT);
+	}
+	
+	return 1;
+}
+
+
+sub t
+{
+	my ($s, $data, $color, $nostatus, $force) = @_;
+	return if $s->p("no_debug") && !$force;
+
+	chomp($data);
+	if ($s->{screen}->{wchar})
+	{
+		printf STDERR ("\r" . color($color) . "%-" . $s->{screen}->{wchar} . "s\n" . color('reset'), $data);
+	}
+	else
+	{
+		print STDERR ("\r" . color($color) . $data . color('reset') . "\n");
+	}
+	
+	unless ($nostatus)
+	{
+		$s->status();
+	}
+}
+
+sub status
+{
+	my ($s) = @_;
+	
+	my $current_uas	= $s->ua("all");
+	my $orig_uas	= $s->{stats}->{origuas};
+	$current_uas = color($current_uas < $orig_uas ? 'bold red' : 'bold') . $s->ua("all") . color('reset');
+	$orig_uas = color('bold') . $orig_uas . color('reset');
+
+	# total messages sent
+	my $total = $s->{stats}->{total} || 0;
+	
+	# already sent
+	my $already = $s->{stats}->{already} || 0;
+	$total += $already;
+	
+	# successful messages
+	my $success = $s->{stats}->{success} || 0;
+	$success &&= color('green bold') . $success . color('reset');
+	
+	my $unknown = $s->{stats}->{unknown} || 0;
+	$unknown &&= color('bold') . $unknown . color('reset');
+
+	# users ignored
+	my $ignore = $s->{stats}->{ignore} || 0;
+	$ignore &&= color('yellow') . $ignore . color('reset');
+
+	# number of uas removed	
+	my $baduas = $s->{stats}->{baduas} || 0;
+	$baduas = $baduas ? " (" . color('red') . $baduas . color('reset') . " removed)" : "";
+	
+	# number of failed responses
+	my $fail = $s->{stats}->{fail} || 0;
+	$fail &&= color('red') . $fail . color('reset');
+
+	my $retry = $s->{stats}->{retry} || 0;
+	$retry &&= color('yellow') . $retry . color('reset');
+	
+	# print status line
+	print STDERR "\r ---- $current_uas UA" . ($current_uas == 1 ? "" : "s") . $baduas;
+	print STDERR ", $total total $s->{_messages_text}";
+	print STDERR ", $already pre-sent" if $already;
+	print STDERR ", $success successes" if $success;
+	print STDERR ", $unknown unknown" if $unknown;
+	print STDERR ", $ignore ignored" if $ignore;
+	print STDERR ", $fail failed" if $fail;
+	print STDERR ", $retry retries" if $retry;
+}
+
+sub w
+{
+	$_[0]->t("WARNING: $_[1]", $_[2] || 'red', $_[3], $_[4]);
+}
+
+sub d
+{
+	my ($s, $msg) = @_;
+	return if $s->p("no_debug");
+	
+	chomp($msg);
+
+	my @info = ($msg =~ /`(\w+)`/g);
+	foreach (@info)
+	{
+		$_ = "$_:\t" . $s->p($_) . "\n";
+	}
+	if (@info)
+	{
+		unshift(@info, "\n");
+	}
+
+	$s->status();	
+	die color('bold red'), "\n\n$_[1]", color('reset'), "\n", @info;
+}
+
+sub check_conf
+{
+	my ($s) = @_;
+	
+	# if we have multiple locations to log, just take the last one
+	my $log = $s->p(log_pages, undef, undef, 1);
+	if (ref($log) eq "ARRAY")
+	{
+		$s->w("We found multiple locations to log to (`log_pages`). We'll just use the last one: $log->[-1]", 'red');
+		$s->p(log_pages, $log->[-1], 1, 1);
+	}
+	
+	# check for double waits
+	if ($s->p(always_wait, undef, undef, 1) && ($s->p(login_wait, undef, undef, 1) || $s->p(message_wait, undef, undef, 1)))
+	{
+		$s->w("You may not want to have `always_wait` AND another _wait parameter set. It will cause double-waits in some areas.", 'red');
+	}
+	
+	# might not want a search list AND search url
+	if ($s->p(search_file, undef, undef, 1) && $s->p(search_url, undef, undef, 1))
+	{
+		$s->d("You cannot specify both a `search_file` and `search_url`.");
+	}
+	
+	# must have at least a search url or file
+	if (!$s->p(search_file, undef, undef, 1) && !$s->p(search_url, undef, undef, 1) && !$s->p(no_search, undef, undef, 1))
+	{
+		$s->w("You must specify either a `search_file`, `search_url` or `no_search`.");
+	}
+	
+	# can't have posts without a url
+	if (!$s->p(login_url, undef, undef, 1))
+	{
+		$s->w("Didn't find a `login_url`. Skipping login.", 'red');
+	}
+	
+	# need to have something to message
+	if (!$s->p(message_url, undef, undef, 1) && !$s->p(no_message, undef, undef, 1))
+	{
+		$s->w("Didn't find a `message_url`. Skipping messages.", 'red');
+	}
+	
+	# can't have a post_search_post without post_search_url
+	if (($s->p(post_search_post, undef, undef, 1) || $s->p(post_search_regexp, undef, undef, 1))
+		&& !$s->p(post_search_url, undef, undef, 1))
+	{
+		$s->d("You must specify a `post_search_url` when using `post_search_post` or `post_search_regexp`.");
+	}
+	
+	# can't have a post_post_search_post without post_post_search_url
+	if (($s->p(post_post_search_post, undef, undef, 1) || $s->p(post_post_search_regexp, undef, undef, 1))
+		&& !$s->p(post_post_search_url, undef, undef, 1))
+	{
+		$s->d("You must specify a `post_post_search_url` when using `post_post_search_post` or `post_post_search_regexp`.");
+	}
+	
+	# if there are no proxies specified
+	if (!$s->p(no_proxies) && !$s->p(proxy, undef, undef, 1))
+	{
+		$s->w("There are no proxies specified! Are you sure you want to continue? [yes/no]", 'bold red', 1, 1);
+		
+		if (<STDIN> !~ /^y/)
+		{
+			$s->d("Exiting at user's request. Smart.");
+			exit;
+		}
+	}
+
+	return 1;
+}
+
+sub read_conf
+{
+	my ($s, $conf, $params) = @_;
+
+	# any custom params to set first
+	if ($params)
+	{
+		# if it's a hash, life is good
+		if (ref($params) eq "HASH")
+		{
+			%{$s->{p}} = ((ref($s->{p}) eq "HASH" ? %{$s->{p}} : ()), %{$params});
+		}
+		else
+		{
+			die "Invalid parameters passed: $params";
+		}
+	}
+
+	return 1 unless $conf;
+
+	my $CONF;
+	if (ref($conf) eq "GLOB")
+	{
+		$CONF = $conf;
+	}
+	else
+	{
+		open($CONF, "<$conf") || die "Can't read $conf: $!";
+	}
+	while (<$CONF>)
+	{
+		chomp;
+		s/\r$//;
+		
+		# ignore comments
+		if (/^\s*(?:[;#].*)?$/)
+		{
+			next;
+		}
+		elsif (/^\s*(\w+)\s*(.*)\s*$/)
+		{
+			my ($key, $val) = ($1, $2);
+			
+			if (!$params{$key} && $key !~ /^[A-Z_]+$/ && ($key =~ /^(?:post_)*(.*)$/ && !$params{$1}))
+			{
+				die "Unknown key at $conf:$.: $key\n"
+			}
+			
+			# support includes
+			if ($key eq 'include')
+			{
+				if ($s->{includes}->{$val}++)
+				{
+					$s->t("Ignoring re-inclusion of $val");
+				}
+				else
+				{
+					$s->read_conf($val);
+				}
+				next;
+			}
+			
+			# create hashref of post params
+			if ($key =~ /_post$|_url$/)
+			{
+				$val =~ s/%([a-f\d]{2})/pack("H2", $1)/eig;
+#				$val = { map { split(/=/, $_, 2) } split(/&/, $val) };
+			}
+
+			# set our value, don't parse
+			$s->p($key, $val, undef, 1);
+		}
+		else
+		{
+			die "Unknown line in $conf:$.: $_";
+		}
+	}
+	close($CONF);
+	
+	return 1;
+}
+
+# substitute variables
+sub subvars
+{
+	my ($s, $value) = @_;
+
+	# i don't think this will ever hit anymore
+	if (ref($value) eq "HASH")
+	{
+		$value = { %{$value} };
+		foreach my $key (keys %{$value})
+		{
+			$value->{$key} = $s->subvars_helper($value->{$key});
+
+		}
+	}
+	
+	elsif (ref($value) eq "ARRAY")
+	{
+		$value = [ @{$value} ];
+		foreach my $val (@{$value})
+		{
+			$val = $s->subvars_helper($val);
+		}
+	}
+	
+	else
+	{
+		$value = $s->subvars_helper($value);
+	}
+	
+	return $value;
+}
+
+sub subvars_helper
+{
+	my ($s, $value) = @_;
+
+	# support time, good for random data or time if necessary
+	$value =~ s/<TIME>/time()/eg;
+	$value =~ s/<RAND>/int(rand(99999999))/eg;
+	$value =~ s/<RAND[\[\(](\d+)[\]\)]>/int(rand($1))/eg;
+
+	# handle variables pointing to references
+	if ($value =~ /^<(\w+)>$/ && ref($s->p($1, undef, undef, 1)))
+	{
+		return $s->p($1, undef, undef, 1);
+	}
+	
+	# replace variables
+	$value =~ s/<(lc)?(\w+)>/
+		$s->p($2, undef, undef, 1) ? ($1 ? lc($s->p($2)) : $s->p($2)) : "<$2>"/eg;
+
+	# replace variables from arrays
+	$value =~ s/<(lc)?(\w+)\[(\d+)\]>/
+		ref($s->p($2, undef, undef, 1)) eq "ARRAY" ?
+		($1 ? lc($s->p($2)->[$3]) : $s->p($2)->[$3]) :
+		"<$2\[$3\]>"/eg;
+		
+	return $value;
+}
+
+# loop through a list, always giving the next item
+sub rotate
+{
+	my ($s, $key) = @_;
+	
+	my @data = $s->get_data($key);
+
+	if (@data)
+	{
+		my $ret = $data[$s->{rotated}->{$key}];
+		$s->{rotated}->{$key} = ($s->{rotated}->{$key} + 1) % @data;
+		return $ret;
+	}
+	return undef;
+}
+
+sub login
+{
+	my ($s, $pre) = @_;
+
+	# if this is our first time and we need to prelogin
+	if (!$pre && $s->p(pre_login_url))
+	{
+		$s->login(1); # do the preround first
+	}
+	# if we're doing our "pre" round
+	elsif ($pre)
+	{
+		$pre = "pre_";
+	}
+	my @html;
+
+	# login to each account
+	foreach my $ua ($s->ua("all"))
+	{
+		# we might not have logins, such as during registration loops
+		my $url = $s->rotate($pre . login_url);
+		next unless $url;
+
+		# login, the ua should rotate automatically but let's just specify to be safe
+		my $html = $s->get({
+			url		=> $url,
+			form	=> $s->rotate($pre . login_post),
+			referer	=> $s->rotate($pre . login_referer),
+			ua		=> $ua->{uanum},
+		});
+
+		# do a search if we have data and store in the LOGIN/PRE_LOGIN variable
+		my $lregexp = $s->p($pre . login_regexp);
+		if ($lregexp && $html =~ /$lregexp/s)
+		{
+			$s->p($pre ? PRE_LOGIN : LOGIN, [ eval('$' . join(', $', 1 .. $#+ )) ], 1);
+		}
+
+		push @html, $html;
+
+		# should we verify we logged in properly
+		my $grep = $s->p($pre . login_verify_regexp);
+		if ($grep)
+		{
+			if ($html !~ /$grep/)
+			{
+				# remove this login/ua if we fail
+				$s->w("We did not match /$grep/ when logging in!", 'red');
+				$s->del_ua($ua->{uanum});
+			}
+		}
+	
+		# some sites, we need to wait before going hog wild
+		if ($s->p($pre . login_wait))
+		{
+			sleep $s->p($pre . login_wait);
+		}
+	}
+		
+	return @html;
+}
+
+sub p
+{
+	my ($s, $key, $value, $overwrite, $dontparse) = @_;
+	
+	if (defined($value))
+	{
+		# we are overwriting whatever we have
+		if ($overwrite)
+		{
+			$s->{p}->{$key} = $value;
+		}
+		# we already have info
+		elsif (ref($s->{p}->{$key}) eq "ARRAY")
+		{
+			push @{$s->{p}->{$key}}, $value;
+		}
+		# we have info but only one element
+		elsif (exists $s->{p}->{$key})
+		{
+			$s->{p}->{$key} = [ $s->{p}->{$key}, $value ];
+		}
+		# new thing
+		else
+		{
+			$s->{p}->{$key} = $value;
+		}
+	}
+
+	# if a _wait and numeric expression, evaluate it
+	if ($key =~ /_wait$/)
+	{
+		my $val = $dontparse ? $s->{p}->{$key} : $s->subvars($s->{p}->{$key});
+		
+		if ($val =~ /^[\@\s*+\-\/()\^\|\&\!\d]+$/)
+		{
+			if ($val =~ /\@/)
+			{
+				# number of UAs
+				my $uas = $s->ua("all");
+
+				$val =~ s/\@/$uas/g;
+			}
+			return eval($val);
+		}
+	}
+
+	return $dontparse ? $s->{p}->{$key} : $s->subvars($s->{p}->{$key});
+}
+
+sub post_post_search
+{
+	my ($s) = @_;
+	
+	my $url = $s->p(post_post_search_url);
+	
+	# move on if we have no post search to do
+	if (!$url)
+	{
+		return undef;
+	}
+
+	# always post from ua 1 to ensure we get same results of users
+	my $html = $s->get({
+		url		=> $url,
+		form	=> $s->p(post_post_search_post),
+		referer	=> $s->p(post_post_search_referer),
+		ua		=> 1,
+	});
+	
+	# do a one time search if we have data and store in the ONETIME variable
+	my $onetime = $s->p(post_post_search_onetime_regexp);
+	if ($onetime && $html =~ /$onetime/s)
+	{
+		$s->p(POST_POST_ONETIME, [ eval('$' . join(', $', 1 .. $#+ )) ], 1);
+	}
+
+	my $grep = $s->p(post_post_search_regexp);
+
+	if ($html =~ s/$grep//s)
+	{
+		return [ eval('$' . join(', $', 1 .. $#+ )) ];
+	}
+}
+
+sub post_search
+{
+	my ($s) = @_;
+	
+	my $url = $s->p(post_search_url);
+	
+	# move on if we have no post search to do
+	if (!$url)
+	{
+		return undef;
+	}
+
+	# always post from ua 1 to ensure we get same results of users
+	my $html = $s->get({
+		url		=> $url,
+		form	=> $s->p(post_search_post),
+		referer	=> $s->p(post_search_referer),
+		ua		=> 1,
+	});
+	
+	# do a one time search if we have data and store in the ONETIME variable
+	my $onetime = $s->p(post_search_onetime_regexp);
+	if ($onetime && $html =~ /$onetime/s)
+	{
+		$s->p(POST_ONETIME, [ eval('$' . join(', $', 1 .. $#+ )) ], 1);
+	}
+
+	my $grep = $s->p(post_search_regexp);
+
+	if ($html =~ s/$grep//s)
+	{
+		return [ eval('$' . join(', $', 1 .. $#+ )) ];
+	}
+}
+
+sub search
+{
+	my ($s) = @_;
+
+	my @data;
+	my $file = $s->p(search_file);
+	
+	# support a search file
+	if ($file)
+	{
+		if ($s->p(READ_FILE))
+		{
+			exit;
+		}
+		$s->p(READ_FILE, 1);
+
+		open(SEARCH, "<$file") || die "Can't read search_file $file: $!";
+		while (<SEARCH>)
+		{
+			chomp;
+			s/\r$//;
+			push @data, [ split(/&/) ];
+		}
+		close(SEARCH);
+		
+		return @data;
+	}
+
+	my $url   = $s->p(search_url);
+	my $ourl  = $s->p(search_url, undef, undef, 1);
+	my $post  = $s->p(search_post);
+	my $opost = $s->p(search_post, undef, undef, 1);
+	my $refer = $s->p(search_referer);
+	my $from	= $s->p(search_from);
+	my $till	= $s->p(search_until);
+
+	# we need to know, do we increment <START> by $increment or set it to $start?
+	if ($url =~ /<START>/)
+	{
+		$s->{cp}->{$ourl} =
+			$s->{cp}->{$ourl} ? 
+			$s->{cp}->{$ourl} + $s->p(search_increment) :
+			$s->p(search_start);
+		$url =~ s/<START>/$s->{cp}->{$ourl}/g;
+	}
+	if ($post =~ /<START>/)
+	{
+		$s->{cp}->{$opost} =
+			$s->{cp}->{$opost} ? 
+			$s->{cp}->{$opost} + $s->p(search_increment) :
+			$s->p(search_start);
+		$post =~ s/<START>/$s->{cp}->{$opost}/g;		 
+	}
+
+	# always search from first UA to ensure we get same search results
+	my $html = $s->get({
+		url		=> $url,
+		form	=> $post,
+		referer	=> $refer,
+		ua		=> 1,
+	});
+
+	$html =~ s/^.*$from//s if $from;
+	$html =~ s/$till.*$//s if $till;
+
+	# do a one time search if we have data and store in the ONETIME variable
+	my $onetime = $s->p(search_onetime_regexp);
+	if ($onetime && $html =~ /$onetime/s)
+	{
+		$s->p(ONETIME, [ eval('$' . join(', $', 1 .. $#+ )) ], 1);
+	}
+
+	my $grep = $s->p(search_regexp);
+
+	while ($html =~ s/$grep//s)
+	{
+		push @data, [ eval('$' . join(', $', 1 .. $#+ )) ];
+	}
+	
+	return @data;
+}
+
+sub message
+{
+	my ($s, $user, $post) = @_;
+
+	my $pre = "post_" x $post;
+	my $go = 0;
+	my $last = !$s->p($pre . post_message_url);
+
+	# how long to wait after sending
+	my $sleep = $s->p($pre . message_wait);
+	
+	# only message if we have a url to message
+	my $url = $s->p($pre . message_url);
+	return unless $url;
+	
+	# get our uanum
+	my $uanum = $s->{lastua} + 1;
+
+	# send our message
+	my $html = $s->get({
+		url		=> $url,
+		form	=> $s->p($pre . message_post),
+		referer	=> $s->p($pre . message_referer),
+		dont_set_referer => 1,
+	});
+	$s->{stats}->{total}++ if $last;
+
+	# if we found a reason to REMOVE the UA (e.g., login disabled)
+	my $remove = $s->p($pre . message_remove_regexp); 
+	if ($remove && $html =~ /$remove/)
+	{
+		$s->{stats}->{retry}++;
+		$s->w("UA:$uanum: Removing UA, we matched `${pre}message_remove_regexp` of /$remove/!", 'red');
+		$s->del_ua($uanum);
+		return $s->message(@_);
+	}
+	
+	# if we found a reason to ignore this user (e.g., user doesn't accept messages)
+	# so let's not sleep and let's reuse the UA, or if we have a successful message
+	my $ignore  = $s->p($pre . message_ignore_regexp);
+	my $success = $s->p($pre . message_verify_regexp);
+	if ($ignore && $html =~ /$ignore/)
+	{
+		$s->{stats}->{ignore}++ if $last;
+		$s->t("UA:$uanum: Matched `${pre}message_ignore_regexp`, re-using UA:$uanum.", 'yellow');
+		$s->ua(-1);
+		
+		# don't sleep this time around
+		$sleep = 0;
+	}
+	elsif ($success)
+	{
+		if ($html =~ /$success/)
+		{
+			$s->{stats}->{success}++ if $last;
+			$s->t("UA:$uanum: Successfully sent message!", 'green') if $last;
+			$go = 1;
+		}
+		else
+		{
+			$s->{stats}->{fail}++ if $last;
+			$s->w("UA:$uanum: We did not match `${pre}message_success_regexp` of /$success/!", 'blink red');
+			$html = undef;
+		}
+	}
+	else
+	{
+		$s->{stats}->{unknown}++ if $last;
+		$go = 1;
+	}
+
+	# if we sent it...
+	if ($html)
+	{
+		# let's store the fact that we've sent the message successfully
+		$s->write_sentto($user);
+	}
+
+	# do a search if we have data and store in the (POST_)MESSAGE variable
+	my $lregexp = $s->p($pre . message_regexp);
+	if ($lregexp && $html =~ /$lregexp/s)
+	{
+		$s->p(uc($pre . MESSAGE), [ eval('$' . join(', $', 1 .. $#+ )) ], 1);
+	}
+
+	# wait after sending message..
+	if ($sleep)
+	{
+		sleep $sleep;
+	}
+
+	# any post_* messages to do?
+	if ($go && !$last)
+	{
+		$s->message($user, $post + 1);
+	}
+
+	return $html;
+}
+
+sub setup_ua
+{
+	my ($s) = @_;
+
+	# we actually want to define the number of UAs based on the number
+	# of logins we'll have, since we might have different proxies/uas on each
+	
+	my $uas = 1;
+	if ($s->get_data(login_url) > $uas)
+	{
+		$uas = $s->get_data(login_url);
+	}
+	if ($s->get_data(login_post) > $uas)
+	{
+		$uas = $s->get_data(login_post);
+	}
+	if ($s->get_data(search_url) > $uas)
+	{
+		$uas = $s->get_data(search_url);
+	}
+	if ($s->get_data(search_post) > $uas)
+	{
+		$uas = $s->get_data(search_post);
+	}
+
+	# store how many uas we have
+	$s->{totaluas} = $uas;
+	
+	# set a default user agent if none
+	unless ($s->p(user_agent, undef, undef, 1))
+	{
+		$s->p(user_agent, "Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 5.1; .NET CLR 1.1.4322; .NET CLR 2.0.50727)", 1, 1);
+	}
+
+		$s->p(user_agent, "Mozilla/4.0 (compatible; MSIE 7.0; Commodore64; .NET CLR 1.1.4322; .NET CLR 2.0.50727)", 1, 1);#h4w
+	# set up a ua for each login
+	foreach my $uan (1 .. $uas)
+	{
+		$s->{ua}->[$uan-1] = LWP::UserAgent->new(keep_alive => 1);
+		$s->{ua}->[$uan-1]->{uanum} = $uan;
+		$s->{ua}->[$uan-1]->requests_redirectable([qw/GET HEAD POST/]);
+		if ($s->p(cookies))
+		{
+			$s->{ua}->[$uan-1]->cookie_jar(HTTP::Cookies->new(file => $s->p(cookies), autosave => 1));
+		}
+		else
+		{
+			#$s->{ua}->[$uan-1]->cookie_jar(HTTP::Cookies->new(file => "cookies.txt", autosave => 1));
+			$s->{ua}->[$uan-1]->cookie_jar({});
+		}
+		$s->{ua}->[$uan-1]->timeout($s->p(ua_timeout) || 30);
+
+		# pull our next useragent name
+		$s->{ua}->[$uan-1]->agent($s->rotate(user_agent));
+
+		# set a proxy
+		$s->set_proxy($uan);
+	}
+	
+	# log original number of UAs
+	$s->{stats}->{origuas} = @{$s->{ua}};
+	
+	# get screen info
+	eval
+	{ 
+		@{$s->{screen}}{wchar, hchar, wpixels, hpixels} = GetTerminalSize();
+	};
+
+	return 1;
+}
+
+sub set_proxy
+{
+	my ($s, $uan) = @_;
+	
+	my @proxies = $s->get_data(proxy);
+
+	# pull out our next proxy
+	if (@proxies)
+	{
+		my $proxy = $s->rotate(proxy);
+		$proxy =~ s!^(https?://|socks://)?!$1 || "http://"!ie;
+	
+		$s->t("Setting UA:$uan proxy of $proxy");
+		$s->{ua}->[$uan-1]->proxy(['http', 'https'] => $proxy);
+		
+		return 1;
+	}
+	
+	return 0;
+}
+
+sub get_data
+{
+	my ($s, $data) = @_;
+	
+	# support sending just data or a key with our object
+	if (ref($s))
+	{
+		$data = $s->p($data);
+	}
+	else
+	{
+		$data = $s;
+	}
+
+	# return dereferenced data
+	if (ref($data) eq "ARRAY")
+	{
+		return @{$data};
+	}
+	elsif (ref($data) eq "HASH")
+	{
+		return %{$data};
+	}
+	elsif (!defined($data))
+	{
+		return ();
+	}
+	else
+	{
+		return $data;
+	}
+}
+
+sub decaptcha
+{
+	my ($s, $image) = @_;
+
+	my ($user, $pass) = split(/:/, $s->p(decaptcher_creds));
+
+	my $request = POST('http://decaptcher.com/poster/',
+		Content_Type => 'multipart/form-data',
+		Content => [
+			username	=> $user,
+			password	=> $pass,
+			function	=> 'picture2',
+			pict_to		=> 0,
+			pict_type	=> 0,
+			pict		=> [$image],
+		]
+	);
+#	$request->authorization_basic($user, $pass);
+
+	my $res = $s->ua->request($request);
+ 	if ($res->is_success)
+	{
+		return $res->content;
+	}
+	else
+	{
+		$@ = $res->status_line;
+		return undef;
+	}
+}
+
+# remove a ua for whatever reason
+sub del_ua
+{
+	my ($s, $uanum) = @_;
+
+	# reduce the uanumber of each ua
+	foreach my $ua (@{$s->{ua}}[$uanum - 1 .. $#{$s->{ua}}])
+	{
+		$ua->{uanum}--;
+	}
+
+	# remove our ua
+	my $ua = splice(@{$s->{ua}}, $uanum - 1, 1);
+
+	# set our next ua to the new ua, change stats
+	$s->{lastua}--;
+	$s->{stats}->{baduas}++;
+
+	# make sure we still have a UA to work with
+	if (!@{$s->{ua}})
+	{
+		$s->d("No more logins/UAs available!");
+	}
+	
+	return $ua;
+}
+
+# get value from an input in html
+sub get_input
+{
+	my ($s, $html, @inputs) = @_;
+
+	my $p = HTML::TokeParser->new(\$html);
+
+	my %values;
+	my %inputs = map { lc($_) => 1 } @inputs;
+ 	while (my $token = $p->get_tag("input"))
+	{
+		if ($inputs{lc($token->[1]->{name})})
+		{
+			$values{lc($token->[1]->{name})} = $token->[1]->{value};
+		}
+	}
+
+	return map { $values{lc($_)} } @inputs;
+}
+
+# return cookies for a ua
+sub cookie
+{
+	my ($s, $all) = @_;
+
+	return $s->{ua}->[0]->cookie_jar->{COOKIES};
+}
+
+# return our next ua from the pool
+sub ua
+{
+	my ($s, $all) = @_;
+	
+	return () unless ref($s->{ua});
+	
+	# if we want all UAs
+	if ($all eq "all")
+	{
+		return @{$s->{ua}};
+	}
+	# we just want the current ua without switching
+	elsif ($all eq "current")
+	{
+		return $s->{ua}->[$s->{lastua}];
+	}
+	# we want to go back a ua
+	elsif ($all < 0)
+	{
+		$s->{lastua} = ($s->{lastua} + $all) % @{$s->{ua}};
+		return $s->{ua}->[$s->{lastua}];
+	}
+	# we want a specific ua
+	elsif ($all)
+	{
+		return $s->{ua}->[$all-1];
+	}
+	# return ua and rotate
+	else
+	{
+		my $ret = $s->{ua}->[$s->{lastua}];
+		$s->{lastua} = ($s->{lastua} + 1) % @{$s->{ua}};
+		return $ret;
+	}
+}
+
+# $html = $obj->get( {
+#	url		=> $absolute_url || $relative_url,
+#	form	=> $post ? ($post_data_string || $post_data_hashref) : undef,
+#   referer	=> $referer || ($dont_pass_referer ? 0 : undef), # undef = last page hit, 0 = no referer,
+#   ua		=> $ua_number,
+#   file	=> $path_to_file_to_upload,
+#   dont_set_referer => $dont_set_referer,
+# } );
+sub get
+{
+	my ($s, $info) = @_;
+	if (ref($info) ne "HASH" && ref($info))
+	{
+		$s->d("You must pass a hashref to get(), not `$info`");
+	}
+	elsif (!ref($info))
+	{
+		$info = { url => $info };
+	}
+
+	# grab our data	
+	my ($url, $form, $refer, $uanum, $dont_set_refer, $files, $xml) =
+		@{$info}{qw/url form referer ua dont_set_referer files xml/};
+
+	# make sure we have a url
+	if (!length($url))
+	{
+		$s->d("You must pass a URL to get()");
+	}
+	
+	# if we have files, make sure they're set properly
+	if ($files && ref($files) ne "HASH")
+	{
+		$s->d("Your files passed to get() must be a hashref, not `$files`");
+	}
+	
+	# if we have ua, make sure it's a number
+	if ($uanum && $uanum !~ /^-?\d+$/)
+	{
+		$s->d("Your uanum passed to get() must be a number, not `$uanum`");
+	}
+	
+
+	# add a base url to url
+	if ($url !~ m|^https?://|i)
+	{
+		$url = $s->p(base_url) . $url;
+	}
+
+	# add a base url to referer
+	if ($refer && $refer !~ m|^https?://|i)
+	{
+		$refer = $s->p(base_url) . $refer;
+	}
+
+	# get our ua
+	my ($ua) = $s->ua($uanum);
+	
+	# set ajax if necessary
+	$s->ua()->default_header('X-Requested-With', 'XMLHttpRequest') if $xml;
+
+	# set a referer if we have one
+	if (defined($refer))
+	{
+		$ua->default_header('Referer' => $refer);
+	}
+	# we will actually auto-set the referer to the last hit url
+	else
+	{
+		$ua->default_header('Referer' => $ua->{previous_url});
+	}
+
+	# hashref our form if not already
+	if (defined($form) && ref($form) ne "HASH")
+	{
+		$form =~ s/\\n/\n/g;
+		$form = { map { split(/=/, $_, 2) } split(/&/, $form) };
+	}
+	
+	# don't display any passwords or weird chars to user
+	if ($form)
+	{
+		my $cleanform = join("&", map { "$_=$form->{$_}" } keys %{$form});
+		$cleanform =~ s/(pass[^=]*|pwd[^=]*|pw\d*)=[^&]*/$1=HIDDEN/g;
+		$cleanform =~ s/[^\x20-\x7f]+/?/g;
+		$s->t("UA:" . $ua->{uanum} . ": Post: $cleanform");
+	}
+
+	# get/post our page
+	$s->t("UA:" . $ua->{uanum} . ": " . ($files ? "UPLOAD" : ref($form) ? "POST" : "GET") . " $url");
+	$url =~ s/\\n/\n/g;
+	my $res;
+
+	# if we're uploading files
+	if ($files)
+	{
+		my @files = map { $_ => [$files->{$_}] } keys %{$files};
+		$res = $ua->post($url, Content_Type => 'multipart/form-data', Content => [
+				ref($form) eq "HASH" ? (@files, %{$form}) : @files
+		]);
+	}
+	else
+	{
+		$res = ref($form) ? $ua->post($url, $form) : $ua->get($url, "X-Forwarded-For", "10.0.0.106");
+		#$res = ref($form) ? $ua->post($url, $form) : $ua->get($url, "Referrer", "http://owasp.org", "Via", "nowhere.org");
+		#$res = ref($form) ? $ua->post($url, $form) : $ua->get($url); h4w
+	}
+	
+	# set our url to use as the referer next time around unless we shouldn't
+	unless ($dont_set_refer)
+	{
+		# we may have been redirected, so get our current uri
+		$ua->{previous_url} = $res->request()->uri();
+	}
+
+	# if we should always wait after a request
+	if ($s->p(always_wait))
+	{
+		sleep $s->p(always_wait);
+	}
+
+ 	if ($res->is_success)
+	{
+		$s->{res} = $res;
+		$s->{html} = $res->content;
+		my $loc = $res->request->uri;
+		my ($host) = ($loc =~ m|^(\w+://[^/]+)|);
+		$s->p(FULLPATH, $loc, 1);
+		$s->p(FULLHOST, $host, 1);
+		if ($s->p(log_pages))
+		{
+			mkdir($s->p(log_pages));
+			
+			my $page;
+			do
+			{
+				$page = $s->p(log_pages) . "/p" . $s->p(PAGENUM, $s->p(PAGENUM) + 1, 1) . ".html";
+			} while (-e $page);
+
+			open(PAGE, ">$page");
+			print PAGE $res->content;
+			close(PAGE);
+			
+			$s->t("UA:" . $ua->{uanum} . ": Logged to $page");
+		}
+
+		$s->ua()->default_header('X-Requested-With') if $xml;
+
+		return $res->content;
+	}
+	else
+	{
+		$@ = $res->status_line;
+		$s->w("UA:" . $ua->{uanum} . ": Failed: $@", 'red');
+
+		if ($@ =~ /^500 Can't connect to /)
+		{
+			# rotate our proxy if there is one
+			$s->set_proxy($ua->{uanum});
+		}
+		elsif ($@ =~ /^501 Protocol scheme 'socks' is not supported/)
+		{
+			$s->w("Attempting to auto-install LWP::Protocol::socks to add socks support.", 'bold');
+			CPAN::Shell->install("IO::Socket::Socks");
+			my $version = eval "use IO::Socket::Socks; \$IO::Socket::Socks::VERSION";
+
+			# successful install?
+			if (!$version)
+			{
+				$s->d("Sorry, couldn't install LWP::Protocol::Socks. Please install manually!");
+				exit;
+			}
+
+			CPAN::Shell->install("LWP::Protocol::socks");
+			my $version = eval "use LWP::Protocol::socks; \$LWP::Protocol::socks::VERSION";
+
+			# successful install?
+			if (!$version)
+			{
+				$s->d("Sorry, couldn't install LWP::Protocol::Socks. Please install manually!");
+				exit;
+			}
+			
+			# retry get
+			$s->get($info);
+		}
+		$s->ua()->default_header('X-Requested-With') if $xml;
+		return undef;
+	}
+}
+
+1;
+

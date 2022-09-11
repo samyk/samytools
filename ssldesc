@@ -8,6 +8,8 @@ my %filetypes = (
   'BEGIN CERTIFICATE REQUEST' => 'csr',
   'BEGIN CERTIFICATE-' => 'crt',
   'BEGIN (\w+) PRIVATE KEY' => '$1',
+  'BEGIN PRIVATE KEY' => 'ec',
+  'BEGIN PUBLIC KEY' => '*',
   '\[\s*\w+\s*\]' => 'conf',
 );
 
@@ -34,6 +36,17 @@ foreach my $file (@ARGV)
     map { s/\{FILENAME\}/$file/g } @cmd;
     print "$file: $type (@cmd)\n";
     system(@cmd);
+  }
+  # try all
+  elsif ($type eq '*')
+  {
+    foreach my $t (keys %cmds)
+    {
+      my @cmd = @{$cmds{$t}};
+      map { s/\{FILENAME\}/$file/g } @cmd;
+      print "$file: $type (@cmd)\n";
+      system(@cmd);
+    }
   }
   else
   {

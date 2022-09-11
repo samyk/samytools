@@ -1,0 +1,45 @@
+#!/usr/bin/perl
+#
+# dump Android apk file, decompile, cleanup, rename as java
+#
+# -samy kamkar
+
+use y;;;
+use strict;
+
+my $UNZIP = "unzip";
+my $JAD = "jad";
+my $DEX2JAR = "d2j-dex2jar.sh";
+
+die "usage: $0 <apk>\n" unless @ARGV;
+my $apk = shift;
+my $apkdir = "apk";
+my $jardir = "jar";
+
+my $jr = << 'EOF';
+find . | perl -lne '$x||=`pwd`;chomp$x; if(-d $_){chdir($_); system $JAD, <*.class>; chdir($x); }'
+EOF
+my $cl = << 'EOF';
+perl -ni -e 'print unless /^\/\/\s*(Decompiled by Jad|Jad home)/' `find . |g jad$`
+EOF
+
+# jad to jar
+my $jad2jar = << 'EOF';
+find . | perl -lne'$o=$_;if(s/\.jad$/.java/){print"$o -> $_";rename($o,$_)}'
+EOF
+
+#mkdir($apkdir);
+#chdir($apkdir);
+run($UNZIP, $apk);
+foreach (<*.dex>)
+{
+  run($DEX2JAR, "-f", $_);
+}
+mkdir($jardir);
+cd($jardir);
+run($UNZIP, "../classes-dex2jar.jar");
+run($jr);
+run($cl);
+run($jad2jar);
+cd("..");
+cd("..");

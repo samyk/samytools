@@ -3,7 +3,7 @@
 # -samy kamkar
 
 # path to OUI berkeleydb
-my $filename = "/b/data/oui.bdb";
+my $filename = "$ENV{HOME}/b/data/oui.bdb";
 use strict;
 use BerkeleyDB;
 
