@@ -1,0 +1,10 @@
+#!/usr/bin/perl
+
+use strict;
+die "usage: $0 [local port] <remote host> <remote port>\n" unless @ARGV == 2 || @ARGV == 3;
+
+my $rport = pop(@ARGV);
+my $rhost = pop(@ARGV);
+my $lport = pop(@ARGV) || $rport;
+  
+system("nc $rhost $rport <&1 | nc -l -p $lport >&0");

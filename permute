@@ -1,0 +1,53 @@
+#!/usr/bin/perl
+
+use Algorithm::Permute;
+
+die "usage: $0 [-l length] <p1> [p2 p3 ...]\n" unless @ARGV;
+
+my $rows = 0;
+my $l;
+if ($ARGV[0] eq "-l")
+{
+	shift(@ARGV);
+	$l = shift(@ARGV);
+}
+
+my @array = @ARGV; 
+if (@array == 3 && $array[1] eq "..")
+{
+	@array = $array[0] .. $array[2];
+}
+
+if ($l)
+{
+	# remove dupes
+	@array = keys % {{ map { $_ => 1 } @array  }};
+	recurse([], 0, $l, @array);
+}
+else
+{		
+	Algorithm::Permute::permute { $rows++; print "@array\n" } @array;
+}
+
+sub recurse
+{
+	my $a = shift;
+	my $n = shift;
+	my $l = shift;
+
+	foreach (@_)
+	{
+		$a->[$n] = $_;
+
+		if ($n == $l - 1)
+		{
+			$rows++;
+			print "@{$a}\n";
+		}
+		else
+		{
+			recurse($a, $n + 1, $l, @_);
+		}
+	}
+}
+print STDERR "Permutations: $rows\n";

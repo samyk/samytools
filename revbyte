@@ -1,0 +1,20 @@
+#!/usr/bin/perl
+
+die "usage: $0 <-h (hex) | -d (dec)> <bytes>\n" unless @ARGV > 1;
+
+my $type = shift;
+
+foreach my $hex (@ARGV)
+{
+	if ($type eq "-h")
+	{
+			my $b = unpack("B8", pack("H2", $hex));
+			print unpack("H2", pack("B8", "" . reverse($b))) . " ";
+	}
+	elsif ($type eq "-d")
+	{
+			my $b = unpack("B8", chr($hex));
+			print ord(pack("B8", "" . reverse($b))) . " ";
+	}
+}
+print "\n";

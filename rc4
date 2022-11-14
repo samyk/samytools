@@ -1,0 +1,47 @@
+#!/usr/bin/perl
+#
+# implementation of the RC4 algorithm 
+#
+# -samy kamkar, code@samy.pl
+
+use strict;
+
+my (@S, $i, $j);
+
+die "usage: $0 <hex key> [files]\n" unless @ARGV;
+my $key = shift;
+my @K = map { hex($_) } $key =~ /(..)/g;
+
+# RC4 initialization
+@S = ();
+$i = $j = 0;
+foreach $i (0 .. 255)
+{
+	$S[$i] = $i;
+}
+foreach $i (0 .. 255)
+{
+	$j = ($j + $S[$i] + $K[$i % @K]) % 256;
+	($S[$i], $S[$j]) = ($S[$j], $S[$i]);
+}
+$i = $j = 0;
+
+my $b;
+while (<>)
+{
+	foreach my $byte (split(//))
+	{
+		print chr(ord($byte) ^ gen_key());
+	}
+}
+
+sub gen_key
+{
+	# keystream generator
+	$i = ($i + 1) % 256;
+	$j = ($j + $S[$i]) % 256;
+	($S[$i], $S[$j]) = ($S[$j], $S[$i]);
+	my $t = ($S[$i] + $S[$j]) % 256;
+	return $S[$t];
+}
+

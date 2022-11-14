@@ -1,0 +1,64 @@
+#!/usr/bin/perl
+
+use strict;
+my $v;
+if ($ARGV[0] eq "-v")
+{
+	shift(@ARGV);
+	$v = 1;
+}
+
+my $hex;
+while (<>)
+{
+	s/\r$//;
+	if (/^#/)
+	{
+		p($hex);
+		$hex = "";
+		next;
+	}
+	elsif (/^(\w) (\S+) -> (\S+)/)
+	{
+		p($hex);
+		$hex = "";
+		print STDERR $_;
+	}
+	elsif (	/^\s*(?:0x\w+:\s+|00[a-f\d]{6}\s+)((?:[a-f\d]{2}\s*){1,16})/ ||
+			/^\s*(?:0x\w+:\s+|00[a-f\d]{6}\s+)?((?:[a-f\d]{2,4} ?){16})/ ||
+			/^\s*((?:[a-f\d]{2} {0,4}){1,16})/)
+	{
+		if ($v) { print "Read: $1\n"; }
+		$hex .= $1;
+	}
+}
+p($hex);
+
+sub p
+{
+	my $h = shift;
+	return if !length $h;
+#print "well: $h\n";
+
+	if ($v)
+	{
+#		print "$h\n";
+	}
+	else
+	{
+		$h =~ s/\s//g;
+		$h = pack("H*", $h);
+	#$h =~ s/\r//g;
+		print $h;
+	}
+}
+
+####
+#T 10.0.2.5:37771 -> 74.125.224.52:80 [AP]
+#  50 4f 53 54 20 2f 6c 6f    63 2f 6d 2f 61 70 69 20    POST /loc/m/api
+#    48 54 54 50 2f 31 2e 31    0d 0a 43 6f 6e 6e 65 63    HTTP/1.1..Connec
+#      74 69 6f 6e 3a 20 63 6c    6f 73 65 0d 0a 43 6f 6e    tion: close..Con
+#        74 65 6e 74 2d 54 79 70    65 3a 20 61 70 70 6c 69    tent-Type: appli
+#          63 61 74 69 6f 6e 2f 62    69 6e 61 72 79 0d 0a 43    cation/binary..C
+#            6f 6e 74 65 6e 74 2d 4c    65 6e 67 74 68 3a 20 32    ontent-Length: 2
+#

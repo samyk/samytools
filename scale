@@ -1,0 +1,28 @@
+#!/usr/bin/perl
+#
+# scales an image by 33% or (some other percentage)
+
+use strict;
+my $CONVERT = "convert";
+my $SCALE = "33%";
+die "usage: $0 [scale% (default: $SCALE)] <img> [...]\n" unless @ARGV;
+
+# optional scale %
+if ($ARGV[0] =~ /^(\d+)%?$/)
+{
+  $SCALE = "$1%";
+  shift(@ARGV);
+}
+
+foreach my $file (@ARGV)
+{
+  (my $small = $file) =~ s/\.([^\.+)])/.small.$1/;
+  run($CONVERT, "-scale", $SCALE, $file, $small);
+  print "Creating $file\n";
+}
+
+sub run
+{
+  print "Running: @_\n";
+  system(@_);
+}

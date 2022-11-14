@@ -1,0 +1,31 @@
+#!/usr/bin/perl
+#
+# produce every permutation of some characters, replacing one for another in a string
+# -samy kamkar 2020/12/10
+
+use strict;
+
+die "usage: $0 <string> <from> <to>\n" unless @ARGV == 3;
+
+my ($str, $from, $to) = @ARGV;
+my %x;
+test($str, -1);
+
+sub test
+{
+  my ($str, $pos) = @_;
+
+  # first try this char unchanged
+  #print "$str\n";
+
+  # find next position
+  my $pos = index($str, $from, $pos+1);
+  return if $pos < 0;
+
+  # replace char
+  print "$str\n" unless $x{$str}++;
+  test($str, $pos+1);
+  substr($str, $pos, length($to), $to);
+  print "$str\n" unless $x{$str}++;
+  test($str, $pos+1);
+}

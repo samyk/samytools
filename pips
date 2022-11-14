@@ -1,0 +1,13 @@
+#!/usr/bin/perl
+#
+# annoyingly use every pip/pip3 i have to do things
+use strict;
+
+my @vers = qw/2 2.6 2.7 3 3.5 3.6 3.7 3.8/;
+my $vers = join " ", map { ("pip$_", "pip-$_") } @vers;
+foreach my $pip (`paths pip $vers`)
+{
+  chomp($pip);
+  print "running: $pip @ARGV\n";
+  #system($pip, @ARGV);
+}

@@ -1,0 +1,13 @@
+#!/usr/bin/perl
+perl -F, -lane '%x=("0x00","NRF_CONFIG","0x01","EN_AA","0x02","EN_RXADDR","0x03","SETUP_AW","0x04","SETUP_RETR","0x05","RF_CH","0x06","RF_SETUP","0x07","NRF_STATUS","0x08","OBSERVE_TX","0x09","CD","0x0A","RX_ADDR_P0","0x0B","RX_ADDR_P1","0x0C","RX_ADDR_P2","0x0D","RX_ADDR_P3","0x0E","RX_ADDR_P4","0x0F","RX_ADDR_P5","0x10","TX_ADDR","0x11","RX_PW_P0","0x12","RX_PW_P1","0x13","RX_PW_P2","0x14","RX_PW_P3","0x15","RX_PW_P4","0x16","RX_PW_P5","0x17","FIFO_STATUS","0x1C","DYNPD","0x1D","FEATURE","0x00","R_REGISTER","0x20","W_REGISTER","0x1F","REGISTER_MASK","0x50","ACTIVATE","0x60","R_RX_PL_WID","0x61","R_RX_PAYLOAD","0xA0","W_TX_PAYLOAD","0xA8","W_ACK_PAYLOAD","0xE1","FLUSH_TX","0xE2","FLUSH_RX","0xE3","REUSE_TX_PL","0xFF","RF24_NOP","0x09","RPD","0xB0","W_TX_PAYLOAD_NO_ACK"); $F[0]=$x{$F[0]}||$F[0]; print"$F[0],$F[1]"' d1-t
+
+my %reg = ("0x00","NRF_CONFIG","0x01","EN_AA","0x02","EN_RXADDR","0x03","SETUP_AW","0x04","SETUP_RETR","0x05","RF_CH","0x06","RF_SETUP","0x07","NRF_STATUS","0x08","OBSERVE_TX","0x09","CD","0x0A","RX_ADDR_P0","0x0B","RX_ADDR_P1","0x0C","RX_ADDR_P2","0x0D","RX_ADDR_P3","0x0E","RX_ADDR_P4","0x0F","RX_ADDR_P5","0x10","TX_ADDR","0x11","RX_PW_P0","0x12","RX_PW_P1","0x13","RX_PW_P2","0x14","RX_PW_P3","0x15","RX_PW_P4","0x16","RX_PW_P5","0x17","FIFO_STATUS","0x1C","DYNPD","0x1D","FEATURE","0x00","R_REGISTER","0x20","W_REGISTER","0x1F","REGISTER_MASK","0x50","ACTIVATE","0x60","R_RX_PL_WID","0x61","R_RX_PAYLOAD","0xA0","W_TX_PAYLOAD","0xA8","W_ACK_PAYLOAD","0xE1","FLUSH_TX","0xE2","FLUSH_RX","0xE3","REUSE_TX_PL","0xFF","RF24_NOP","0x09","RPD","0xB0","W_TX_PAYLOAD_NO_ACK");
+
+my $file = shift;
+open(SPI, "<$file") || die "Can't open $file: $!";
+while (<SPI>)
+{
+  chomp;
+  my ($mosi, $miso) = split(/,/);
+  if ($mosi =~ /^0x[23]
+$F[0]=$x{$F[0]}||$F[0]; print"$F[0],$F[1]"'

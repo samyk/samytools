@@ -1,0 +1,32 @@
+#!/usr/bin/perl
+#
+# show only when a packet CHANGES
+# -samyk
+#
+
+my $ngrep = "ngrep";
+
+use strict;
+
+die "usage: $0 <ngrep options>\n" unless @ARGV;
+shift(@ARGV) if $ARGV[0] eq "ngrep";
+
+my ($old, $new);
+open(NGREP, "-|", $ngrep, @ARGV) || die "Can't run $ngrep: $!";
+while (<NGREP>)
+{
+	if (/^#/)
+	{
+		if ($old ne $new)
+		{
+			print $new;
+			$old = $new;
+		}
+		$new = "";
+	}
+	else
+	{
+		$new .= $_;
+	}
+}
+

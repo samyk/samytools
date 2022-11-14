@@ -1,0 +1,2 @@
+# supports: jpeg | tiff | png | gif | jp2 | pict | bmp | qtif | psd | sgi | tga
+sips -s format bmp input.png --out output.bmp

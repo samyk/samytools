@@ -1,0 +1,29 @@
+#!/usr/bin/perl
+
+use strict;
+use y;
+
+my $DIR = '/Users/samy/Code/3D/';
+my $IP = '10.0.1.196';
+my $USER = 'pi';
+my $RDIR = '/home/pi/.octoprint/uploads';
+my $RSYNC = 'rsync -avz -e "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"';
+my $shafile = "$DIR/.sha";
+
+
+# did dir change from last time?
+my $sha = sha1 join "", map { (stat($_))[7] . $_ } sort glob("$DIR/*.gcode");
+my $oldsha = cat($shafile);
+
+if ($sha ne $oldsha)
+{
+	if (!system("ping -c 1 $IP >>/dev/null"))
+	{
+		print "up\n";
+		if (!system("$RSYNC $DIR $USER\@$IP:$RDIR"))
+		{
+			print "success rsync!\n";
+			out($shafile, $sha);
+		}
+	}
+}

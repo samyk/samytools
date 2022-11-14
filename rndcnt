@@ -1,0 +1,19 @@
+#!/usr/bin/perl
+
+use strict;
+
+my %x;
+
+while (<ARGV>)
+{
+	my $str = $_;
+	while (length($str))
+	{
+		$x{ord(substr($str, 0, 1, ""))}++;
+	}
+}
+
+foreach (sort { $x{$a} <=> $x{$b} } keys %x)
+{
+	print chr($_) . " ($_): $x{$_}\n";
+}

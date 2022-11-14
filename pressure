@@ -1,0 +1,23 @@
+#!/usr/bin/perl
+#
+# convert mks901p / bpg400 analog output to torr
+# -samy kamkar, 2020/03/14
+
+use strict;
+die "usage: $0 <mks V> <bpg V>\n" unless @ARGV;
+my $BASE = "torr";
+my %p = ("torr" => -0.125, "Pa" => 2, "mbar" => 0);
+
+my $v = shift;
+my $torr = 10 ** ($v - 6);
+my $e = sprintf("%e", $torr);
+$e =~ s/(?<!\.)0+e/e/g;
+$e =~ s/0+(\d+)$/$1/;
+printf("MKS: $torr $BASE ($e $BASE)\n", $torr);
+
+my $v = shift;
+my $torr = 10 ** (($v - 7.75) / 0.75 + $p{$BASE});
+my $e = sprintf("%e", $torr);
+$e =~ s/(?<!\.)0+e/e/g;
+$e =~ s/0+(\d+)$/$1/;
+printf("BPG: $torr $BASE ($e $BASE)\n", $torr);

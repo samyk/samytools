@@ -1,0 +1,14 @@
+#!/usr/bin/perl
+
+use strict;
+die "usage: [-s(tring)] <data [...]>\n" unless @ARGV;
+if ($ARGV[0] eq "-s")
+{
+  shift;
+  print reverse($_) . "\n" for @ARGV;
+}
+else
+{
+  @ARGV = reverse @ARGV;
+  print "@ARGV\n";
+}

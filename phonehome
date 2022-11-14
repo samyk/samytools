@@ -1,0 +1,150 @@
+#!/usr/bin/perl
+
+use strict;
+use Data::Dumper;
+
+# sleepwatcher -w this.program
+
+my $USER = 'samy';
+my $LOG = "/Users/$USER/.stolen";
+my $HOST = "samy.pl";
+my $HOSTDIR = '/home/samy/.stolen';
+my $IP = "72.14.179.47";
+my $IFCONFIG = '/sbin/ifconfig';
+my $AIRPORT = '/System/Library/PrivateFrameworks/Apple80211.framework/Versions/A/Resources/airport';
+my $SCREENCAPTURE = '/usr/sbin/screencapture';
+my $IMAGESNAP = '/usr/bin/imagesnap';
+my $PROFILER = '/usr/sbin/system_profiler';
+my $DATE = '/bin/date';
+my $PS = '/bin/ps';
+
+mkdir($LOG);
+
+chomp(my $date = `(date | awk ' { gsub(":", "") gsub(" ","");print }')`);
+my %data;
+print STDERR "Snapping picture\n";
+system($IMAGESNAP, "$LOG/$date.isight.jpg");
+print STDERR "Capturing screen\n";
+#system($SCREENCAPTURE, "-x", "$LOG/$date.screen.jpg");
+$data{date} = `$DATE`;
+print STDERR "Acquiring airport info\n";
+$data{airport} = `$AIRPORT -s`;
+print STDERR "Getting network info\n";
+$data{ifconfig} = `$IFCONFIG -a`;
+print STDERR "Getting system profiler data\n";
+$data{profiler} = `$PROFILER -detailLevel -3`;
+print STDERR "Looking up geolocation\n";
+my $geo = get_geo_info($data{airport});
+$data{geolocation} = get_location($geo);
+
+open(L, ">$LOG/$date.log.txt");
+print L Dumper(\%data);
+close(L);
+
+system("rsync -zav -e 'ssh -l $USER -i /Users/$USER/.ssh/id_rsa' $LOG/ $HOST:$HOSTDIR/");
+#system("scp $LOG/$date.* $HOST:$HOSTDIR/");
+
+# screen shot every 10 seconds until we're logged in
+watch_screen();
+
+exit;
+
+
+sub watch_screen
+{
+	use File::Tail;
+
+	my $file = File::Tail->new("/var/log/secure.log");
+	my $loggedin = 0;
+	my $x = 0;
+	while (!$loggedin)
+	{
+		print STDERR "Snapping picture\n";
+		$x++;
+		system($IMAGESNAP, "$LOG/$date.isight.$x.jpg");
+		system("rsync -zav -e 'ssh -l $USER -i /Users/$USER/.ssh/id_rsa' $LOG/ $HOST:$HOSTDIR/");
+
+		eval
+		{
+			$SIG{ALRM} = sub { die };
+			alarm(10);
+			while (defined(my $line = $file->read))
+			{
+				if ($line =~ /Succeeded authorizing right system.login.screensaver/)
+				{
+					$loggedin = 1;
+					last;
+				}
+			}
+			alarm(0);
+		};
+		
+	}
+}
+
+sub get_geo_info
+{
+	my $airport = shift;
+	my $geo;
+	foreach my $line (split/\n/, $airport)
+	{
+		if ($line =~ /^\s*(\S.*?)\s+((?:\w+:){5}\w+)\s+(\S+)/)
+		{
+			my ($ssid, $mac, $str) = ($1, $2, $3);
+			$ssid =~ s/"//g;
+			$geo .= '{"mac_address":"' . $mac . '","ssid":"' . $ssid . '","signal_strength":' . $str . '},';
+		}
+	}
+	chop($geo);
+
+	return $geo;
+}
+
+sub get_location
+{
+	my $string = shift;
+	my $data;
+	my $newline = 0;
+
+	use IO::Socket;
+
+	eval
+	{
+		$SIG{ALRM} = sub { die };
+		alarm(20);
+
+		my $s = IO::Socket::INET->new("www.google.com:80");
+		my $all = '{"version":"1.1.0","request_address":true,"wifi_towers":[' . $string . ']}';
+		my $length = length($all);
+		print $s <<"EOF";
+POST /loc/json HTTP/1.1
+Host: www.google.com
+User-Agent: Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10.6; en-US; rv:1.9.2b4) Gecko/20091124 Firefox/3.6b4
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+Accept-Language: en-us,en;q=0.5
+Accept-Encoding: none
+Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.7
+Content-Length: $length
+Content-Type: text/plain; charset=UTF-8
+Pragma: no-cache
+Cache-Control: no-cache
+
+$all
+
+EOF
+
+		while (<$s>)
+		{
+			$data .= $_;
+			if (/^\r?\n$/)
+			{
+				last if ++$newline == 2;
+			}
+		}
+		close($s);
+		alarm(0);
+	};
+
+	return $data;
+}
+

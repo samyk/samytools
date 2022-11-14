@@ -1,0 +1,17 @@
+#!/usr/bin/perl
+
+die "usage: $0 <xml/plist> [xml/plist ...]\n" unless @ARGV;
+
+foreach my $f (@ARGV)
+{
+	open(F, $f) || die "can't read $f: $!";
+	if (<F> !~ /^<\?xml/)
+	{
+		system("plutil", "-convert", "xml1", $f, "-o", "$f.xml");
+	}
+	else
+	{
+		system("plutil", "-convert", "binary1", $f, "-o", "$f.plist");
+	}
+	close(F);
+}

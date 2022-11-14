@@ -1,0 +1,67 @@
+#!/usr/bin/perl
+
+# currently only supports 5-bit track2
+use strict;
+
+die "converts magstripe track data (bitstream) into actual data\nusage: $0 [track 1/2/3 or 5/7 bits] <bitstream> [more...]\n" unless @ARGV;
+
+my $bitlen = 5;
+my %sub = (5 => 48, 7 => 32);
+if ($ARGV[0] == 2 || $ARGV[0] == 3 || $ARGV[0] == 5)
+{
+	$bitlen = 5;
+	shift(@ARGV);
+}
+elsif ($ARGV[0] == 1 || $ARGV[0] == 7)
+{
+	$bitlen = 7;
+	shift(@ARGV);
+}
+
+foreach my $bits (@ARGV)
+{
+	my $lrc = 0;
+	$bits =~ s/^0+//;
+	while (length($bits) >= $bitlen)
+	{
+		my @bit = split(//, substr($bits, 0, $bitlen, ""));
+		my $crc = pop(@bit);
+		my $out = 0;
+		map { $out += $bit[$_] << $_ } 0 .. $bitlen - 2;
+		#my ($a, $b, $c, $d, $crc) = split(//, substr($bits, 0, $bitlen, ""));
+		#my $out = $a + ($b << 1) + ($c << 2) + ($d << 3);
+		$lrc ^= $out;
+		$out = chr($out + $sub{$bitlen});
+		print $out;
+
+		print STDERR "@bit  $crc - " . (ord($out)-$sub{$bitlen}) . " - $out\n";
+		my $tcrc = 1;
+		map { $tcrc ^= $bit[$_] } 0 .. $bitlen - 2;
+		if ($tcrc != $crc)
+		{
+			print STDERR "ERROR: CRC doesn't match (@bit $crc)\n";
+		}
+
+		# handle LRC (end sentinel)
+		if ($out eq "?")
+		{
+			print "\n";
+			#my ($a, $b, $c, $d, $crc) = split(//, substr($bits, 0, $bitlen, ""));
+			#my $out = $a + ($b << 1) + ($c << 2) + ($d << 3);
+			my @bit = split(//, substr($bits, 0, $bitlen, ""));
+			my $crc = pop(@bit);
+			my $out = 0;
+			map { $out += $bit[$_] << $_ } 0 .. $bitlen - 2;
+			print STDERR "@bit  $crc - $out (LRC $lrc)\n";
+
+			print "lrc $out - $lrc\n";
+
+			$bits =~ s/0*$//;
+			if (length($bits))
+			{
+				print STDERR "ERROR: still bits: $bits\n";
+			}
+		}
+	}
+	print "\n";
+}

@@ -1,0 +1,15 @@
+#!/usr/bin/perl
+#
+# run platformio serial monitor in a loop
+# -samy kamkar
+
+use strict;
+
+my @particle = qw/particle serial monitor --follow/;
+my @pio = qw/platformio device monitor/;
+
+while (1)
+{
+  system((-e "platformio.ini" ? @pio : @particle), @ARGV);
+  sleep(2);
+}
