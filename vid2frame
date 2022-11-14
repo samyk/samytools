@@ -1,0 +1,21 @@
+#!/usr/bin/perl
+#
+# convert video to individual frames based off fps
+
+# -samy kamkar
+
+use strict;
+use y;;;
+
+die "usage: $0 <vid file> [out dir] [framerate]\n" unless @ARGV;
+
+my $FFMPEG   = "ffmpeg"; # path to ffmpeg (or in $PATH)
+my $EXIFTOOL = "exiftool"; # path to exiftool (not required)
+
+my ($vid, $outdir, $fr) = @ARGV;
+$outdir ||= "frames";
+$fr ||= (map /(\d+)/, runv($EXIFTOOL, '-VideoFrameRate', $vid))[0];
+$fr ||= 60;
+
+mkdir($outdir);
+system($FFMPEG, '-i', $vid, '-r', $fr, "$outdir/frame%03d.bmp");

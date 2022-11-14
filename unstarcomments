@@ -1,0 +1,4 @@
+#!/usr/bin/perl -p
+
+s|/\*(.*?)\*/|//$1\n|g;
+if(s|/\*|//|){$star++}elsif($star && s|\*/|\n|){ $star=0;$_="// $_";}elsif($star){$_="// $_"}

@@ -1,0 +1,22 @@
+#!/usr/bin/perl
+
+use strict;
+use IO::Socket;
+
+die "usage: $0 <host> <port> <file>\n" unless @ARGV == 3;
+my ($host, $port, $file) = @ARGV;
+
+open(F, "<$file") || die "Can't read $file: $!";
+my $data = join "", <F>;
+close(F);
+
+my $sock = IO::Socket::INET->new(
+  PeerAddr => $host,
+  PeerPort => $port,
+  LocalPort => $port,
+  Proto => "udp",
+) || die $!;
+
+print $sock $data;
+
+close($sock);

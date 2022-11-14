@@ -1,0 +1,4 @@
+#!/usr/bin/perl
+
+$ENV{TZ} = "UTC";
+system("date");

@@ -1,0 +1,21 @@
+#!/usr/local/bin/node
+
+var a = process.argv
+if (a.length != 3)
+{
+  console.log(`usage: ${a[0]} ${a[1]} <file.js>`)
+  process.exit(1)
+}
+
+var generate = require('generate-source-map')
+var fs = require('fs')
+var fn = a[2]
+
+var file = {
+  source: fs.readFileSync(fn),
+  sourceFile: fn
+}
+
+var map = generate(file)
+
+console.log(map.toString())

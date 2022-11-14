@@ -1,0 +1,9 @@
+#!/usr/bin/perl
+
+use strict;
+
+foreach my $file (@ARGV)
+{
+  open(F, "<$file") || die "can't read $file: $!";
+  print grep { !/^#include/ } <F>;
+}

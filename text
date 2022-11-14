@@ -1,0 +1,21 @@
+#!/usr/bin/perl
+
+# svg works but Google Sheets doesn't support it
+my $format = 'png';
+use strict;
+use Cwd;
+
+die "usage: $0 [font] [fontsize] [-degrees] [color] <text>\n" unless @ARGV;
+my $text = pop;
+my $color = $ARGV[-1] =~ /^#\w+$/ ? pop : 'black';
+my $rotate = $ARGV[-1] =~ /^-\d+$/ ? pop : -90;
+my $fontsize = $ARGV[-1] =~ /^\d+$/ ? pop : 60;
+my $font = pop || 'Arial';
+
+my $file = "rotated.$format";
+my $run = "convert -pointsize $fontsize -background transparent -fill '$color' -font $font -gravity center label:'$text' -rotate $rotate $file";
+system($run);
+
+my $cwd = cwd();
+system("osascript -e 'tell app \"Finder\" to set the clipboard to ( POSIX file \"$cwd/$file\" )'");
+print STDERR "copied image to clipboard\n";

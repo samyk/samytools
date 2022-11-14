@@ -1,0 +1,72 @@
+#!/usr/bin/perl
+#
+# Convert math/chem to unicode -samy
+
+use strict;
+use utf8;
+
+my @str = @ARGV ? @ARGV : <>;
+print "--\n";
+foreach my $str (@str)
+{
+   chomp($str);
+   next if $str eq "";
+#print unpack("H*", $str) . "\n";
+   $str =~ s/_\{(.*?)\}/convert_to_subscripts($1)/eg;
+   $str =~ s/_(.)/convert_to_subscripts($1)/eg;
+   $str =~ s/\^\{(.*?)\}/convert_to_superscripts($1)/eg;
+   $str =~ s/\^(.)/convert_to_superscripts($1)/eg;
+   while (length($str))
+   {
+      #e28692
+      if ($str =~ s/^(.*?)(.·|.→|.•|\xe2\x86\x92|\xe2\x80\xa2)//)
+      {
+         #print "\nk ($2)\n";
+         u($1);
+         #      print "1 - $1\n";
+         b($2);
+         #print "2 - $2\n";
+      }
+      else
+      {
+         u($str);
+         $str = '';
+      }
+   }
+   print "\n";
+}
+
+sub convert_from_subscripts (_) {
+   my $string = $_[0];
+   $string =~ tr[₊₋₌₍₎₀₁₂₃₄₅₆₇₈₉ₐₑₔₕᵢⱼₖₗₘₙₒₚᵣₛₜᵤᵥₓᵦᵧᵨᵩᵪ]
+   [+−=()0123456789aeəhijklmnoprstuvxβγρφχ];
+   return $string;
+}
+sub convert_from_superscripts (_) {
+   my $string = $_[0];
+   $string =~ tr[⁺⁻⁼⁽⁾⁰¹²³⁴⁵⁶⁷⁸⁹ᴬᵃᴭᵆᵄᵅᶛᴮᵇᶜᶝᴰᵈᶞᴱᵉᴲᵊᵋᶟᵌᶠᴳᵍᶢˠʰᴴʱᴵⁱᶦᶤᶧᶥʲᴶᶨᶡᴷᵏˡᴸᶫᶪᶩᴹᵐᶬᴺⁿᶰᶮᶯᵑᴼᵒᵓᵔᵕᶱᴽᴾᵖᶲʳᴿʴʵʶˢᶳᶴᵀᵗᶵᵁᵘᶸᵙᶶᶣᵚᶭᶷᵛⱽᶹᶺʷᵂˣʸᶻᶼᶽᶾꝰᵜᵝᵞᵟᶿᵠᵡᵸჼˤⵯ]
+   [+−=()0123456789AaÆᴂɐɑɒBbcɕDdðEeƎəɛɜɜfGgɡɣhHɦIiɪɨᵻɩjJʝɟKklLʟᶅɭMmɱNnɴɲɳŋOoɔᴖᴗɵȢPpɸrRɹɻʁsʂʃTtƫUuᴜᴝʉɥɯɰʊvVʋʌwWxyzʐʑʒꝯᴥβγδθφχнნʕⵡ];
+   return $string;
+}
+sub convert_to_subscripts (_) {
+   my $string = $_[0];
+   $string =~ tr[+−=()0123456789aeəhijklmnoprstuvxβγρφχ]
+   [₊₋₌₍₎₀₁₂₃₄₅₆₇₈₉ₐₑₔₕᵢⱼₖₗₘₙₒₚᵣₛₜᵤᵥₓᵦᵧᵨᵩᵪ];
+   return $string;
+}
+sub convert_to_superscripts (_) {
+   my $string = $_[0];
+   $string =~ tr[+−=()0123456789AaÆᴂɐɑɒBbcɕDdðEeƎəɛɜɜfGgɡɣhHɦIiɪɨᵻɩjJʝɟKklLʟᶅɭMmɱNnɴɲɳŋOoɔᴖᴗɵȢPpɸrRɹɻʁsʂʃTtƫUuᴜᴝʉɥɯɰʊvVʋʌwWxyzʐʑʒꝯᴥβγδθφχнნʕⵡ]
+   [⁺⁻⁼⁽⁾⁰¹²³⁴⁵⁶⁷⁸⁹ᴬᵃᴭᵆᵄᵅᶛᴮᵇᶜᶝᴰᵈᶞᴱᵉᴲᵊᵋᶟᵌᶠᴳᵍᶢˠʰᴴʱᴵⁱᶦᶤᶧᶥʲᴶᶨᶡᴷᵏˡᴸᶫᶪᶩᴹᵐᶬᴺⁿᶰᶮᶯᵑᴼᵒᵓᵔᵕᶱᴽᴾᵖᶲʳᴿʴʵʶˢᶳᶴᵀᵗᶵᵁᵘᶸᵙᶶᶣᵚᶭᶷᵛⱽᶹᶺʷᵂˣʸᶻᶼᶽᶾꝰᵜᵝᵞᵟᶿᵠᵡᵸჼˤⵯ];
+   return $string;
+}
+sub u
+{
+   binmode(STDOUT, ":utf8");
+   print $_[0];
+}
+sub b
+{
+   binmode(STDOUT, ":bytes");
+   print $_[0];
+}

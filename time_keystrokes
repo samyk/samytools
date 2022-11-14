@@ -1,0 +1,35 @@
+#!/usr/bin/perl
+#
+use strict;
+use Time::HiRes qw/gettimeofday tv_interval/;
+use Term::ReadKey;
+
+
+select(STDIN);
+$|++;
+select(STDOUT);
+
+my ($k, $d, $t0);
+my $cnt = 0;
+ReadMode 4; # Turn off controls keys
+while (1)
+{
+  my $d = ReadKey(-1);
+  #my $r = read(STDIN, $d, 1);
+  if (length $d) {
+    $t0 = [gettimeofday] if ($cnt == 0);
+    $cnt += length($d);
+    $k .= $d;
+    if ($d eq "X") { ReadMode 0; die; }
+
+    #print "$d\n" if "$d\n";
+    if ($cnt == 16)
+    {
+      print "\n";
+      print tv_interval($t0, [gettimeofday]);
+      print " $k\n";
+      $d = $k = "";
+      $cnt = 0;
+    }
+  }
+}
