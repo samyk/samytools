@@ -1,0 +1,34 @@
+#!/usr/bin/perl
+#
+# backup dot files to dropbox
+# -samy kamkar
+
+use y;;;
+
+# file containing files/dirs to ignore
+my $IGNORE_FILE = ".dotignore";
+
+# files to save in home dir
+my $SAVE_FILES = ".*";
+
+# where to save to
+my $SAVE_TO = "/Users/samy/Dropbox/Mac/Dotfiles";
+
+# path and args to rsync
+my $RSYNC = "rsync";
+my @RSYNC_ARGS = grep { length } split /\s+/, qq/
+	--archive
+	--exclude-from=$IGNORE_FILE
+	--verbose
+/;
+
+use strict;
+
+# do this in home
+chdir($ENV{HOME});
+
+# get our files to save
+my @SAVE = grep { !/^\.\.?$/ } glob($SAVE_FILES);
+
+mkdir($SAVE_TO);
+print run($RSYNC, @RSYNC_ARGS, @SAVE, $SAVE_TO);

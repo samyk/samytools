@@ -1,0 +1,27 @@
+#!/usr/bin/perl
+#
+# get git url
+# -samy kamkar
+# 2022/11/13
+
+use strict;
+use Cwd;
+
+my $GIT = "git";
+my @GIT_ARGS = qw/config --get remote.origin.url/;
+
+my $cwd = cwd;
+@ARGV ?
+  map
+  {
+    print "$_: " if @ARGV > 1 && $ARGV[0] ne "-q";
+    chdir($_);
+    giturl();
+    chdir($cwd);
+  } @ARGV :
+  giturl();
+
+sub giturl
+{
+  system($GIT, @GIT_ARGS);
+}
