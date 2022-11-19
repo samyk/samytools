@@ -44,10 +44,10 @@ sub mapw (&@)
 sub chomps
 {
   mapw {
-      substr($_, length() - 1, 1) eq $/
-        ? substr($_, 0, length() - 1)
-        : $_
-    } @_
+    substr($_, length() - 1, 1) eq $/
+      ? substr($_, 0, length() - 1)
+      : $_
+  } @_
 }
 
 # multiw(wantarray, list)
@@ -74,16 +74,24 @@ sub file
 # safe run (verbose)
 sub runv
 {
-  open(my $fh, "-|", @_);
-  print STDERR join(" ", map { "'$_'" } @_), "\n";
-  return join "", <$fh>;
+  _run(1, @_)
 }
 
-# safe run
+# safe run and return stdout
+# in list context, returns list of lines, in scalar context returns single value
 sub run
 {
+  _run(0, @_)
+}
+
+sub _run
+{
+  my $verbose = shift;
+
+  # safely open
   open(my $fh, "-|", @_);
-  return join "", <$fh>;
+  print STDERR join(" ", map { "'$_'" } @_), "\n" if $verbose;
+  return wantarray ? <$fh> : join "", <$fh>;
 }
 
 # safe run but support a string and interpolate, eg: safe_run(
