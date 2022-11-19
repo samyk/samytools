@@ -1,0 +1,64 @@
+#!/usr/bin/perl
+#
+# split multi-channel audio file into multiple audio files
+# -samy kamkar 2022/11/18
+
+use strict;
+use y;;;
+
+# paths to ffmpeg/ffprobe
+my $FFMPEG = "ffmpeg";
+my $FFPROBE = "ffprobe";
+my @OPTS = qw/-hide_banner/;
+my %formats = ffmpeg_formats();
+
+# custom output format? if it's an ffmpeg format and not a file
+my $format = shift if !-e $ARGV[0] && $formats{$ARGV[0]};
+
+die << "EOF" unless @ARGV;
+usage: $0 [out-format] <file ...>
+split audio tracks from file into multiple files
+EOF
+
+# run on each file
+foreach my $file (@ARGV)
+{
+	# do we have audio channels? format?
+	# ffprobe outputs to STDERR so doing this insecurely, see https://trac.ffmpeg.org/ticket/2226
+	#my $probe = run($FFPROBE, @OPTS, $file);
+	my $probe = `$FFPROBE @OPTS $file 2>&1`;
+	my $lformat = $format || ($probe =~ /^Input #\d+, ([^,]+)/m)[0];
+
+	if ($probe =~ /^\s*Stream.*?(\d+) channels/m)
+	{
+		my $ch = $1;
+		my @splitopts;
+		push @splitopts, join "; ", map { "[0:0]pan=1|c0=c$_\[$_]" } 0 .. $ch;
+		push @splitopts, "-map", "[$_]", "$_.$lformat" for 0 .. $ch;
+		runv($FFMPEG, @OPTS, "-i", $file, "-filter_complex", @splitopts);
+	}
+	else
+	{
+		print STDERR "error: no channels found in $file\n$probe\n\n";
+	}
+}
+
+sub ffmpeg_formats
+{
+  my @out = run($FFMPEG, @OPTS, '-formats');
+
+	# remove lines up to the formats
+	while (my ($i, $elem) = each @out)
+	{
+		# find our -- line, after this are the ffmpeg formats
+		if ($elem =~ /^\s*--/)
+		{
+			@out = splice(@out, $i+1);
+			last;
+		}
+	}
+
+	# return hash of formats to text
+	#   wav => 'WAV / WAVE (Waveform Audio)', ...
+	return map { chomp; my @s = split(/\s+/, $_, 4); $s[2] => $s[3] } @out;
+}
