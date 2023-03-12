@@ -1,0 +1,23 @@
+#!/usr/bin/perl
+# -samy kamkar 2023/03/11
+die << "EOF" unless @ARGV;
+removes audio from videos via ffmpeg
+
+usage: $0 <file ...>
+EOF
+
+use strict;
+use y;;;
+
+# cmd or path to ffmpeg
+my $FFMPEG = "ffmpeg";
+
+# ffmpeg options
+my @FFMPEG_OPTS = qw//;
+
+foreach my $file (@ARGV)
+{
+  my $out = $file;
+  $out =~ s/(\.[^.]+)$/.rmsound$1/;
+  run($FFMPEG, @FFMPEG_OPTS, '-i', $file, '-c', 'copy', '-an', $out);
+}
