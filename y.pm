@@ -434,13 +434,16 @@ sub cat
   my ($dir, $nofail, $nointerp, $lines) = @_;
 
   $dir = $nointerp ? $dir : path($dir);
-	if (!open(F, "<$dir") && !$nofail)
+	if (!open(F, "<$dir"))
 	{
-		print STDERR "Can't read $dir: $!";
+	  if (!$nofail)
+    {
+      print STDERR "Can't read $dir: $!\n";
+    }
 		return;
 	}
 
-	my @data = $lines ? map { <F> } 0 .. $lines : <F>;
+	my @data = $lines ? map { <F> } 1 .. $lines : <F>;
 	close(F);
 
 	return wantarray ? @data : join "", @data;
@@ -680,6 +683,70 @@ sub asin { atan2($_[0], sqrt(1 - $_[0] * $_[0])) }
 sub acos { atan2( sqrt(1 - $_[0] * $_[0]), $_[0] ) }
 sub tan { sin($_[0]) / cos($_[0])  }
 sub log10 { log($_[0])/log(10) }
+
+# verbose cd
+sub cdv
+{
+  print STDERR "> cd $_[0]\n";
+  return cd(@_);
+}
+
+# change dir
+sub cd
+{
+  return chdir($_[0]);
+}
+
+# is stdin piped in?
+# useful for scripts that can be used in a pipeline
+sub piped
+{
+  return !-t STDIN;
+}
+
+# reads line by line either from pipe, from files passed in as args, from strings passed in via -s, or strings passed in without -s (if strings are passed in without -s, first we check to see if there are files with those names)
+sub opts_lines
+{
+  &opts_fors
+}
+
+# return options where we may pass in strings, files, or explicilty state strings with -s or files with -f
+sub opts_fors
+{
+  # stdin piped in?
+  if (piped())
+  {
+    print "pipe\n";
+    return (<>);
+  }
+  else
+  {
+    my @ret;
+    my %args;
+    use Getopt::Long qw(:config bundling auto_help);
+    # --strings (-s) means all further args are strings
+    # --string (-S) means only following arg is a string
+    # --files (-f) means all further args are files
+    # --file (-F) means only following arg is a file
+    GetOptions(\%args, 'string=S', 'file=F', 'files|strings=f@|s@');
+
+    print Dumper(\%args);
+    print Dumper(\@ARGV);
+
+    # return row by row or string if file doesn't exist
+    my @ret = (cors(@ARGV));
+    print "ret: ", Dumper(\@ret);
+
+  }
+}
+
+# return every line of file, or treat file as string if file doesn't exist
+sub cors { &cat_or_string }
+sub cat_or_string
+{
+  print "cors: @_\n";
+  map { -e $_ ? cat($_) : $_ } @_;
+}
 
 # add new functions here   #
 # XXX END OF NEW FUNCTIONS y.pm ###
@@ -1107,16 +1174,10 @@ sub _NT_waitpid { my ($s, $pid, $par) = @_;
   }
 }
 
-sub cdv
-{
-  print STDERR "> cd $_[0]\n";
-  return chdir($_[0]);
-}
 
-sub cd
-{
-  return chdir($_[0]);
-}
+=cut
+end of Parallel::ForkManager
+=cut
 
 ### XXX ###
 ## note this is a different package, please move new functions into the `y` package
