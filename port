@@ -1,0 +1,74 @@
+#!/usr/bin/perl
+#
+# small macports improvements
+# -samy kamkar 2023/04/30
+
+use strict;
+use y;;;
+use Term::ANSIColor;
+
+# move this to y
+# app name
+my $app = ($0 =~ m#([^/]+)$#)[0];
+
+# move this to y
+# config vars from env
+my %c = map { $_ => $ENV{$_} } grep { /^$app/i } keys %ENV;
+$c{PORT_PATH}        //= '/opt/local/bin/port';
+$c{PORT_MATCH_COLOR} //= 'green';
+
+# system if no args so we get interactive shell
+exec($c{PORT_PATH}) if !@ARGV;
+
+# shorthand command map
+my %map = (
+	's' => 'search',
+	'i' => 'install',
+	'u' => 'uninstall',
+);
+
+my $cmd = $map{$_ = shift} || $_;
+my $arg = $ARGV[-1];
+my @out = run($c{PORT_PATH}, $cmd, @ARGV);
+
+if ("search" =~ /^$cmd/)
+{
+	# ordered list of how we want to prioritize our data
+	my $pattern = '^(?:
+		($arg\b) |
+		($arg) |
+		(\S*\b$arg\b) |
+		(\S*\b$arg) |
+		(\S*$arg\b) |(\S*$arg)
+	)\S*\s+\@';
+
+	# number of sections
+	my $sects = ($pattern =~ tr/|//) + 1;
+	my (@sects, $sect);
+
+	# look for search pattern
+	$pattern =~ s/\$arg/$arg/g;
+	#print $pattern . $/;
+
+	for (my $i = 0; $i < $#out; $i++)
+	{
+		my $line = $out[$i];
+
+		# name has our search term
+		$sect =
+			$line =~ /$pattern/xi ?
+			eval(join "", (map { "\$$_ ? $_ : " } 1 .. $sects), $sects + 1) :
+			$sects + 1;
+
+		push @{$sects[$sect]}, $line, " " x 4;
+		
+		do {
+			$line = $out[++$i];
+			push @{$sects[$sect]}, $line;
+		} while ($line !~ /^\s*$/);
+	}
+
+	@out = map { s/$arg/colored($arg, $c{PORT_MATCH_COLOR})/eig; $_ } map { ref($_) && @{$_} } reverse @sects;
+}
+
+print @out;
