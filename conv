@@ -1,63 +1,101 @@
 #!/usr/bin/perl
 
-die "usage: $0 <from> <to>\nconverts any file format to another\n" unless @ARGV;
-my ($a, $b) = @ARGV;
+die "usage: $0 <from file> <to file> | <to format> <files ...>\nconverts any file format to another\n" unless @ARGV;
 
-my ($type1, $type2);
-$type1 = lc($1) if $a =~ /(\w+)$/;
-$type2 = lc($1) if $b =~ /(\w+)$/;
+my $FFMPEG = "/opt/local/bin/ffmpeg";
+my ($a, $b, $type1, $type2);
 
+my $default = "mp3";
+my %default = (
+	"wav"  => "mp3",
+	"aif"  => "mp3",
+	"aiff" => "mp3",
+	"flac" => "mp3",
+	"mov"  => "mp3",
+	"flv"  => "mp3",
+	"mpg"  => "mp3",
+	"mkv"  => "mp3",
+	"avi"  => "mp3",
+
+	"png"  => "jpg",
+	"webp" => "jpg",
+);
+
+# to format, files
 if (@ARGV == 1)
 {
 	$b = $a;
-	$b =~ s/\w+$/mp3/;
-	$type2 = "mp3";
+	$b =~ s/(\w+)$/$default{$1} || $default/e;
+	$type2 = $default{$1} || $default;
 }
-
-my $FFMPEG = "/opt/local/bin/ffmpeg";
-my %types = (
-	"mov-aiff"	=> [$FFMPEG, "-i", $a, "-f", "aiff", "-ab", "320000", "-vn", $b],
-	"mov-aif"		=> [$FFMPEG, "-i", $a, "-f", "aiff", "-ab", "320000", "-vn", $b],
-	"mp4-aiff"	=> [$FFMPEG, "-i", $a, "-f", "aiff", "-ab", "320000", "-vn", $b],
-	"mp4-aif"		=> [$FFMPEG, "-i", $a, "-f", "aiff", "-ab", "320000", "-vn", $b],
-	"flv-aiff"	=> [$FFMPEG, "-i", $a, "-f", "aiff", "-ab", "320000", "-vn", $b],
-	"flv-aif"		=> [$FFMPEG, "-i", $a, "-f", "aiff", "-ab", "320000", "-vn", $b],
-
-	"mp4-wav"		=> [$FFMPEG, "-i", $a, "-f", "wav", "-ab", "320000", "-vn", $b],
-	"mov-wav"		=> [$FFMPEG, "-i", $a, "-f", "wav", "-ab", "320000", "-vn", $b],
-	"flv-wav"		=> [$FFMPEG, "-i", $a, "-f", "wav", "-ab", "320000", "-vn", $b],
-
-	"mp4-mp3"		=> [$FFMPEG, "-i", $a, "-f", "mp3", "-ab", "320000", "-vn", $b],
-	"mov-mp3"		=> [$FFMPEG, "-i", $a, "-f", "mp3", "-ab", "320000", "-vn", $b],
-	"flv-mp3"		=> [$FFMPEG, "-i", $a, "-f", "mp3", "-ab", "320000", "-vn", $b],
-
-	"aif-mp3"		=> ["sox", "-V3", $a, "-C", "320", $b],
-	"aiff-mp3"	=> ["sox", "-V3", $a, "-C", "320", $b],
-	"flac-mp3"	=> ["sox", "-V3", $a, "-C", "320", $b],
-	
-	#"m4a"				=> ["faad -o - 04\ Kiss\ Kiss\ Bang\ Bang.m4a | lame - "
-	#"mp4-mov"		=> [$FFMPEG, "-i", $a, $b],
-
-	"mov"				=> [$FFMPEG, "-i", $a, $b],
-  "mp3"				=> ["sox", "-V3", $a, "-C", "320", $b],
-  "wav"				=> ["sox", "-V3", $a, "-C", "320", $b],
-
-	"jpg"				=> ["convert", "-verbose", $a, $b],
-	"png"				=> ["convert", "-verbose", $a, $b],
-	"gif"				=> ["convert", "-verbose", $a, $b],
-	"bmp"				=> ["convert", "-verbose", $a, $b],
-);
-
-my $out = $types{"$type1-$type2"} || $types{$type2};
-if ($type1 eq $type2)
+elsif (@ARGV > 2 || (@ARGV == 2 && !-e $ARGV[0]))
 {
-	die "Can't convert to the same type ($type1)\n";
+	$type2 = shift @ARGV;
+	foreach $a (@ARGV)
+	{
+		($b = $a) =~ s/(\w+)$/$type2/;
+		$type1 = $1;
+		conv($a, $b, $type1, $type2);
+	}
+	exit;
 }
-
-if (!$out)
+else
 {
-	die "Don't understand type $type1 or $type2\n";
+	($a, $b) = @ARGV;
 }
 
-print "> " . join(" ", @{$out}) . "\n";
-system(@{$out});
+$type1 = lc($1) if $a =~ /(\w+)$/;
+$type2 = lc($1) if $b =~ /(\w+)$/;
+conv($a, $b, $type1, $type2);
+
+
+sub conv
+{
+	my ($a, $b, $type1, $type2) = @_;
+
+	my %types = (
+		"mov-aiff"	=> [$FFMPEG, "-i", $a, "-f", "aiff", "-ab", "320000", "-vn", $b],
+		"mov-aif"		=> [$FFMPEG, "-i", $a, "-f", "aiff", "-ab", "320000", "-vn", $b],
+		"mp4-aiff"	=> [$FFMPEG, "-i", $a, "-f", "aiff", "-ab", "320000", "-vn", $b],
+		"mp4-aif"		=> [$FFMPEG, "-i", $a, "-f", "aiff", "-ab", "320000", "-vn", $b],
+		"flv-aiff"	=> [$FFMPEG, "-i", $a, "-f", "aiff", "-ab", "320000", "-vn", $b],
+		"flv-aif"		=> [$FFMPEG, "-i", $a, "-f", "aiff", "-ab", "320000", "-vn", $b],
+
+		"mp4-wav"		=> [$FFMPEG, "-i", $a, "-f", "wav", "-ab", "320000", "-vn", $b],
+		"mov-wav"		=> [$FFMPEG, "-i", $a, "-f", "wav", "-ab", "320000", "-vn", $b],
+		"flv-wav"		=> [$FFMPEG, "-i", $a, "-f", "wav", "-ab", "320000", "-vn", $b],
+
+		"mp4-mp3"		=> [$FFMPEG, "-i", $a, "-f", "mp3", "-ab", "320000", "-vn", $b],
+		"mov-mp3"		=> [$FFMPEG, "-i", $a, "-f", "mp3", "-ab", "320000", "-vn", $b],
+		"flv-mp3"		=> [$FFMPEG, "-i", $a, "-f", "mp3", "-ab", "320000", "-vn", $b],
+
+		"aif-mp3"		=> ["sox", "-V3", $a, "-C", "320", $b],
+		"aiff-mp3"	=> ["sox", "-V3", $a, "-C", "320", $b],
+		"flac-mp3"	=> ["sox", "-V3", $a, "-C", "320", $b],
+
+		#"m4a"				=> ["faad -o - 04\ Kiss\ Kiss\ Bang\ Bang.m4a | lame - "
+		#"mp4-mov"		=> [$FFMPEG, "-i", $a, $b],
+
+		"mov"				=> [$FFMPEG, "-i", $a, $b],
+		"mp3"				=> ["sox", "-V3", $a, "-C", "320", $b],
+		"wav"				=> ["sox", "-V3", $a, "-C", "320", $b],
+
+		"jpg"				=> ["convert", "-verbose", $a, $b],
+		"png"				=> ["convert", "-verbose", $a, $b],
+		"gif"				=> ["convert", "-verbose", $a, $b],
+		"bmp"				=> ["convert", "-verbose", $a, $b],
+	);
+	my $out = $types{"$type1-$type2"} || $types{$type2};
+	if ($type1 eq $type2)
+	{
+		die "Can't convert to the same type ($type1)\n";
+	}
+
+	if (!$out)
+	{
+		die "Don't understand type $type1 or $type2\n";
+	}
+
+	print "> " . join(" ", @{$out}) . "\n";
+	system(@{$out});
+}
