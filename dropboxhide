@@ -1,4 +1,30 @@
-#!/bin/bash
+#!/usr/bin/perl
 
-xattr -w com.dropbox.ignored 1 $1
-xattr -w 'com.apple.fileprovider.ignore#P' 1 $1
+use strict;
+my $XATTR = 'xattr';
+my @ATTRS = qw/com.dropbox.ignored com.apple.fileprovider.ignore#P/;
+
+my $action =
+  $ARGV[0] =~ /^-[uhs]$/ ? shift :  # command line argument has highest priority
+    $0 =~ /unhide$/i ? '-u' : '-h'; # otherwise check program name
+
+die "usage: $0 [-u(nhide) | -h(ide) | -s(tatus)] <file ...>\n" unless @ARGV;
+
+foreach my $file (@ARGV)
+{
+  if ($action eq '-s')
+  {
+    print "$file:\n";
+    system($XATTR, $file);
+    print "\n";
+    next;
+  }
+
+  system(
+    $XATTR, (
+      $action eq '-h' ?
+      ('-w', $_, 1) :
+      ('-d', $_)
+    ), $file
+  ) for @ATTRS;
+}
