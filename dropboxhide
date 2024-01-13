@@ -1,4 +1,4 @@
 #!/bin/bash
 
 xattr -w com.dropbox.ignored 1 $1
-xattr -w 'com.apple.fileprovider.ignore#P' $1
+xattr -w 'com.apple.fileprovider.ignore#P' 1 $1
