@@ -10,25 +10,32 @@
 use strict;
 use Cwd;
 
-die "usage: $0 [-v] <files / paths ...>\n" unless @ARGV;
+die "usage: $0 [-v | -R] <files / paths ...>\n" unless @ARGV;
 my $verbose = $ARGV[0] eq "-v" ? shift : 0;
+my $norecurse = $ARGV[0] eq "-R" ? shift : 0;
 
 my %formats = (
+  "asar"  => "asar extract FILE .",
   "bzip2" => "bzip2 -vd FILE",
   "tar"   => "tar -xvf FILE",
   "cpio"  => "cpio -idv -F FILE",
   "xar"   => "xar -xv -f FILE",
   "gzip"  => "zcat -v FILE > FILE.unp",
   "7-zip" => "7z x FILE",
+  "lzma"  => "7z x FILE",
   "xz"    => "xz -vd FILE",
   "^zip"  => "unzip FILE",
 );
 
+# extensions to formats
+# formats are already considered extensions, eg .asar is already considered asar but can be overridden here
 my %exts = (
-  "7z"  => "7-zip",
-  "gz"  => "gzip",
-  "pkg" => "xar",
-  "pax" => "cpio",
+  "7z"   => "7-zip",
+  "gz"   => "gzip",
+  "tgz"  => "gzip",
+  "bz2"  => "bzip2",
+  "pkg"  => "xar",
+  "pax"  => "cpio",
 );
 
 # this helps us ensure we're only looking at longer formats first - for example, match "7-zip" before "zip"
@@ -56,7 +63,7 @@ sub find
     # skip pre-existing files
     debug("searching $file");
     my $shfile = shquote($file);
-    -d $file ? find(<$shfile/*>) : explode($file);
+    -d $file ? !$norecurse && find(<$shfile/*>) : explode($file);
   }
 }
 
@@ -64,7 +71,7 @@ sub explode
 {
   foreach my $file (@_)
   {
-    #print STDERR "FILE: $file\n";
+    print STDERR "FILE: $file\n";
 
     # skip files if we've already unpacked them
     next if $skip{$file}++;
@@ -96,7 +103,7 @@ sub type
   {
     return $formats{$format} if $type =~ /$format/i
   }
-  return $formats{$exts{$1}} if $file =~ /\.([^.]+)$/;
+  return $formats{$exts{$1} || $1} if $file =~ /\.([^.]+)$/;
 }
 
 sub debug
