@@ -8,8 +8,67 @@ use strict;
 my @particle = qw/particle serial monitor --follow/;
 my @pio = qw/platformio device monitor/;
 
+# pio config locations
+my @pinis = map { (("../" x $_) . "platformio.ini") } 0 .. 2;
+
+# find platformio ini
+my ($pini) = grep { -e $_ } @pinis;
+if ($pini)
+{
+  # add serial port + baud rate if found
+  my %pio = read_pio_config($pini);
+  my $env = "env:$pio{platformio}{default_envs}";
+  push(@pio, "-p", $pio{$env}{upload_port}  ) if $pio{$env}{upload_port};
+  push(@pio, "-b", $pio{$env}{monitor_speed}) if $pio{$env}{monitor_speed};
+}
+
+my @run = ($pini ? @pio : @particle, @ARGV);
+print "@run\n";
 while (1)
 {
-  system((-e "platformio.ini" ? @pio : @particle), @ARGV);
+  system(@run);
   sleep(2);
 }
+
+sub read_pio_config
+{
+  my $pini = shift;
+  my %pio;
+  {
+    open(P, "<$pini") || die "Can't read $pini: $!";
+    my ($last, $section, $fSection);
+    while (<P>)
+    {
+      # ignore comments / whitespace
+      next if /^\s*(;.*)?$/;
+
+      if (/^ ?(\w+)\s*=\s*(.*)/)
+      {
+        $last = $1;
+        $pio{$section}{$1} = $2;
+      }
+      elsif (/^\s+(.*)/ && $last)
+      {
+        $pio{$section}{$last} .= " $1";
+      }
+      # track section
+      elsif (/^\s*\[(.*?)\]/)
+      {
+        $section = $1;
+        # set default_envs to first section if there is no default_envs
+        $pio{platformio}{default_envs} ||= $1 if $section =~ /^env:(.*)$/;
+      }
+      else
+      {
+        print STDERR "unknown line: $_\n";
+      }
+    }
+    close(P);
+  }
+
+  use Data::Dumper;
+  print Dumper(\%pio);
+
+  return %pio;
+}
+
