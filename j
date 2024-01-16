@@ -11,7 +11,7 @@ my %o;
 
 getopts('hs:', \%o);
 usage() if $o{h};
-my $join = defined $o{s} ? $o{s} : ' ';
+my $join = defined $o{s} ? $o{s} : @ARGV == 1 ? shift : '';
 
 my @out = @ARGV ? @ARGV : map { chomp; $_ } <>;
 print join($join, @out);
@@ -19,5 +19,5 @@ print "\n" if $nopipe;
 
 sub usage
 {
-  die "usage: $0 [-s 'join string' (default none)] [strings to join, read from STDIN]\n";
+  die "usage: $0 [-s 'join string' (default none)] [strings to join vs read from STDIN]\n";
 }
