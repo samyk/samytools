@@ -54,6 +54,7 @@ sub conv
 	my ($a, $b, $type1, $type2) = @_;
 
 	my %types = (
+		"webm-aiff"	=> [$FFMPEG, "-i", $a, "-f", "aiff", "-ab", "320000", "-vn", $b],
 		"mov-aiff"	=> [$FFMPEG, "-i", $a, "-f", "aiff", "-ab", "320000", "-vn", $b],
 		"mov-aif"		=> [$FFMPEG, "-i", $a, "-f", "aiff", "-ab", "320000", "-vn", $b],
 		"mp4-aiff"	=> [$FFMPEG, "-i", $a, "-f", "aiff", "-ab", "320000", "-vn", $b],
@@ -61,10 +62,12 @@ sub conv
 		"flv-aiff"	=> [$FFMPEG, "-i", $a, "-f", "aiff", "-ab", "320000", "-vn", $b],
 		"flv-aif"		=> [$FFMPEG, "-i", $a, "-f", "aiff", "-ab", "320000", "-vn", $b],
 
+		"webm-wav"	=> [$FFMPEG, "-i", $a, "-f", "wav", "-ab", "320000", "-vn", $b],
 		"mp4-wav"		=> [$FFMPEG, "-i", $a, "-f", "wav", "-ab", "320000", "-vn", $b],
 		"mov-wav"		=> [$FFMPEG, "-i", $a, "-f", "wav", "-ab", "320000", "-vn", $b],
 		"flv-wav"		=> [$FFMPEG, "-i", $a, "-f", "wav", "-ab", "320000", "-vn", $b],
 
+		"webm-mp3"	=> [$FFMPEG, "-i", $a, "-f", "mp3", "-ab", "320000", "-vn", $b],
 		"mp4-mp3"		=> [$FFMPEG, "-i", $a, "-f", "mp3", "-ab", "320000", "-vn", $b],
 		"mov-mp3"		=> [$FFMPEG, "-i", $a, "-f", "mp3", "-ab", "320000", "-vn", $b],
 		"flv-mp3"		=> [$FFMPEG, "-i", $a, "-f", "mp3", "-ab", "320000", "-vn", $b],
@@ -76,7 +79,10 @@ sub conv
 		#"m4a"				=> ["faad -o - 04\ Kiss\ Kiss\ Bang\ Bang.m4a | lame - "
 		#"mp4-mov"		=> [$FFMPEG, "-i", $a, $b],
 
+		"webm"			=> [$FFMPEG, "-i", $a, $b],
 		"mov"				=> [$FFMPEG, "-i", $a, $b],
+		"mp4"				=> [$FFMPEG, "-i", $a, $b],
+
 		"mp3"				=> ["sox", "-V3", $a, "-C", "320", $b],
 		"wav"				=> ["sox", "-V3", $a, "-C", "320", $b],
 
