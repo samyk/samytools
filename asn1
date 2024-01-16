@@ -382,9 +382,10 @@ sub parse
       $bytes .= substr($data, 0, $length);
     }
     my $value = substr($data, 0, $length, "");
+    $bytes = fromhex($bytes);
     print tohex($bytes) . " len=$length\n" if $VERBOSE;
+    #print $bytes . " len=$length\n" if $VERBOSE;
     my $str = "[" . ($types{$type} || "0x" . unpack("H2", chr($type))) . ": $length]";
-
 
     # if sequence/set, parse next
     if ($types{$type} eq 'Sequence')
@@ -422,6 +423,11 @@ sub parse
 sub oid
 {
   return $oids{objident($_[0])};
+}
+
+sub fromhex
+{
+  return pack("H*", $_[0]);
 }
 
 sub tohex
