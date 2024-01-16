@@ -3,10 +3,8 @@
 # backup dot files to dropbox
 # -samy kamkar
 
-use y;;;
-
 # file containing files/dirs to ignore
-my $IGNORE_FILE = ".dotignore";
+my $IGNORE_FILE = "/Users/samy/.dotignore";
 
 # files to save in home dir
 my $SAVE_FILES = ".*";
@@ -23,6 +21,8 @@ my @RSYNC_ARGS = grep { length } split /\s+/, qq/
 /;
 
 use strict;
+use lib "/Users/samy/b";
+use y;;;
 
 # do this in home
 chdir($ENV{HOME});
@@ -32,3 +32,6 @@ my @SAVE = grep { !/^\.\.?$/ } glob($SAVE_FILES);
 
 mkdir($SAVE_TO);
 print run($RSYNC, @RSYNC_ARGS, @SAVE, $SAVE_TO);
+
+# xxx don't back these up in the first place
+#unlink(map { "$SAVE_TO/$_" } @RM);
