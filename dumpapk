@@ -7,9 +7,15 @@
 use y;;;
 use strict;
 
-my $UNZIP = "unzip";
-my $JAD = "jad";
-my $DEX2JAR = "d2j-dex2jar.sh";
+#my %p = map { uc($_) => env_path($_) } qw(jad d2j-dex2jar.sh unzip perl find egrep);
+my $UNZIP = env_path("unzip");
+my $JADX  = env_path("jadx");
+my $D2J   = env_path("d2j-dex2jar.sh");
+my $PERL  = env_path("perl");
+my $FIND  = env_path("find");
+my $EGREP = env_path("egrep");
+
+$ENV{_JADX_PATH} = $JADX;
 
 die "usage: $0 <apk>\n" unless @ARGV;
 my $apk = shift;
@@ -17,10 +23,11 @@ my $apkdir = "apk";
 my $jardir = "jar";
 
 my $jr = << 'EOF';
-find . | perl -lne '$x||=`pwd`;chomp$x; if(-d $_){chdir($_); system $JAD, <*.class>; chdir($x); }'
+find . | perl -lne '$x||=`pwd`;chomp$x; if(-d $_){chdir($_); system $ENV{_JADX_PATH}, <*.class>; chdir($x); }'
 EOF
+
 my $cl = << 'EOF';
-perl -ni -e 'print unless /^\/\/\s*(Decompiled by Jad|Jad home)/' `find . |g jad$`
+perl -ni -e 'print unless /^\/\/\s*(Decompiled by Jad|Jad home)/' `find . | egrep jad$`
 EOF
 
 # jad to jar
@@ -33,7 +40,7 @@ EOF
 run($UNZIP, $apk);
 foreach (<*.dex>)
 {
-  run($DEX2JAR, "-f", $_);
+  run($D2J, "-f", $_);
 }
 mkdir($jardir);
 cd($jardir);
@@ -43,5 +50,3 @@ run($cl);
 run($jad2jar);
 cd("..");
 cd("..");
-
-sub cd { chdir(shift) }
