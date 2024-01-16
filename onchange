@@ -5,17 +5,28 @@
 #
 # eg: onchange project/ rsync -av project/ remote.com:proj
 
-my ($secs, $file, @command) = usage();
+my ($secs, $files, $commands) = usage();
 
-my $last;
+my @files = @{$files};
+my @commands = @{$commands};
+my (%last, %mtime);
 while (1)
 {
-	($mtime) = (stat($file))[9];
-	if ($last != $mtime)
+	my $change;
+	foreach my $file (@files)
 	{
-		print "Running...";
+		($mtime{$file}) = (stat($file))[9];
+		if ($last{$file} != $mtime{$file})
+		{
+			$change++;
+			$last{$file} = $mtime{$file};
+		}
+	}
+
+	if ($change)
+	{
+		print "\$ @commands\n";
 		system(@command);
-		$last = $mtime;
 	}
 	select(undef, undef, undef, $secs);
 }
@@ -29,13 +40,16 @@ sub usage
 		$secs = shift(@ARGV);
 	}
 
-	my $file = -e $ARGV[-1] && !-e $ARGV[0] ? $ARGV[-1] : shift(@ARGV);
+	my @files;
+	push(@files, shift(@ARGV)) while (-e $ARGV[0]);
+
+	#my $file = -e $ARGV[-1] && !-e $ARGV[0] ? $ARGV[-1] : shift(@ARGV);
 	my @command = @ARGV;
 
-	if (!-e $file || !@command)
+	if (!@files || !@command)
 	{
-		die "usage: $0 [secs] [file/dir (or last arg of command)] <command to run on change>\n";
+		die "usage: $0 [secs] [files/dirs] <command to run on change>\n";
 	}
 
-	return ($secs, $file, @command);
+	return ($secs, \@files, \@command);
 }
