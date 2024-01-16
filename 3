@@ -2,12 +2,14 @@
 
 use bignum;
 use Math::Trig;
+
 #use y;;;
 use constant PI => 4 * atan2(1, 1);
 #sub pi { 355/113 }
 sub asin { atan2($_[0], sqrt(1 - $_[0] * $_[0])) }
 sub acos { atan2( sqrt(1 - $_[0] * $_[0]), $_[0] ) }
 sub tan { sin($_[0]) / cos($_[0])  }
+sub atan { Math::Trig::atan($_[0]) } # atan2($_[0], $_[1]) }
 sub log10 { log($_[0])/log(10) }
 
 my $debug = 0;
