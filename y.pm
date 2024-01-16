@@ -114,6 +114,9 @@ sub html2text
 }
 
 # more easily b64 decode/encode
+sub b64 { &base64 }
+sub b64d { &decode_base64 }
+sub b64e { &encode_base64 }
 sub base64
 {
   return $_[0] =~ /^[A-Za-z0-9+\/\r\n]+={0,2}$/ ? decode_base64($_[0]) : encode_base64($_[0]);
@@ -695,6 +698,12 @@ sub cdv
 sub cd
 {
   return chdir($_[0]);
+}
+
+# get path of something from env variable, otherwise use default
+sub env_path
+{
+  return $ENV{"$_[0]_PATH"} || $_[0];
 }
 
 # is stdin piped in?
