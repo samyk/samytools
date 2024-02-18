@@ -1,6 +1,9 @@
 #!/usr/bin/perl
-
+#
 # -samy kamkar
+#
+# todo
+# - add known support like rfc7042, rfc1918
 
 use strict;
 use Socket;
@@ -15,7 +18,7 @@ my %known;
 if (-e $MACS)
 {
 	require $MACS;
-	my %known = macs();
+	%known = macs();
 }
 
 #my @devs = @ARGV ? @ARGV : qw/bridge0 en0 en1 bridge100 vnic0 vnic1 eth0 eth1/;
@@ -26,23 +29,33 @@ my @devs = @ARGV ? @ARGV : map { /^(\w+)/ ? $1 : () } `$IFCONFIG_PATH -a`;
 # go through each device and scan network
 foreach my $dev (@devs)
 {
-	my ($ip) = `$IFCONFIG_PATH $dev 2>>/dev/null` =~ /inet\s+(?:addr:)?(\S+)\.\d+\s/;
+  my $ip;
+  if ($dev =~ /^(\d+\.\d+\.\d+)/)
+  {
+    $ip = $1;
+    $dev = "";
+  }
+  else
+  {
+    ($ip) = `$IFCONFIG_PATH $dev 2>>/dev/null` =~ /inet\s+(?:addr:)?(\S+)\.\d+\s/;
+  }
 
-	if ($ip)
-	{	
-		print "Scanning $dev $ip.0/24\n";
-		#`nmap -sn $ip.0/24`;
-		# much faster to just "generate" UDPs (which may not even get sent, we're just triggering arp requests for unknown hosts)
-		socket(SOCKET, PF_INET, SOCK_DGRAM, getprotobyname("udp")) || die $!;
-		my $zero = "";
-		my $port = 1337;
-		for my $octet (0 .. 255)
-		{
-			my $addr = sockaddr_in($port, inet_aton("$ip.$octet"));
-			send(SOCKET, $zero, 0, $addr);
-		}
-	}
+  if ($ip)
+  {	
+    print "Scanning $ip.0/24 ($dev)\n";
+    #`nmap -sn $ip.0/24`;
+    # much faster to just "generate" UDPs (which may not even get sent, we're just triggering arp requests for unknown hosts)
+    socket(SOCKET, PF_INET, SOCK_DGRAM, getprotobyname("udp")) || die $!;
+    my $zero = "";
+    my $port = 1337;
+    for my $octet (0 .. 255)
+    {
+      my $addr = sockaddr_in($port, inet_aton("$ip.$octet"));
+      send(SOCKET, $zero, 0, $addr);
+    }
+  }
 }
+sleep(1);
 arp();
 
 sub arp
@@ -53,23 +66,82 @@ sub arp
     $match =~ s/ \[ethernet\]|^\? | ifscope|[()]| permanent//g;
     if ($match =~ /at (\w\S+)/ && $1)
     {
-    	my $mac = join ":", map { sprintf("%02s", $_) } split /:/, lc $1;
+      my $mac = join ":", map { sprintf("%02s", $_) } split /:/, lc $1;
       my @oui = `oui $mac`;
       shift @oui;
       my $oui = "$oui[0] $oui[-1]";
-			$oui =~ s/\r|\n//g;
+      $oui =~ s/\r|\n//g;
 
-			#$match .= ": " . join(", ", map { s/\r//g; chomp; $_ } @oui) if @oui;
+      #$match .= ": " . join(", ", map { s/\r//g; chomp; $_ } @oui) if @oui;
       $match =~ s/ at \w\S+/ $mac/;
       $match =~ s/ on//g;
       $match =~ s/^(\S+)/sprintf("%-15s", $1)/e;
 
-			# do we know it?
-			$match .= $known{$mac} ? " [$known{$mac}]" : " [?????]";
+      # do we know it?
+      $match .= $known{$mac} ? " [$known{$mac}]" : " [?????]";
 
-			# add oui
+      # add oui
       $match .= " $oui" if @oui;
     }
     print "$match\n" unless $match =~ /incomplete|ff:ff:ff:ff:ff:ff/i;
   }
 }
+
+=cut
+2.1.1.  EUI-48 Assignments under the IANA OUI
+
+   The OUI 00-00-5E has been assigned to IANA as stated in Section 1.4
+   above.  This includes 2**24 EUI-48 multicast identifiers from
+   01-00-5E-00-00-00 to 01-00-5E-FF-FF-FF and 2**24 EUI-48 unicast
+   identifiers from 00-00-5E-00-00-00 to 00-00-5E-FF-FF-FF.
+
+Eastlake & Abley                   BCP                          [Page 6]
+RFC 7042            IANA/IETF and IEEE 802 Parameters       October 2013
+
+   Of these EUI-48 identifiers, the sub-blocks reserved or thus far
+   assigned by IANA for purposes of documentation are as follows:
+
+   Unicast, all blocks of 2**8 addresses thus far:
+
+      00-00-5E-00-00-00 through 00-00-5E-00-00-FF: reserved and require
+         IESG Ratification for assignment (see Section 5.1).
+
+      00-00-5E-00-01-00 through 00-00-5E-00-01-FF: assigned for the
+         Virtual Router Redundancy Protocol (VRRP) [RFC5798].
+
+      00-00-5E-00-02-00 through 00-00-5E-00-02-FF: assigned for the IPv6
+         Virtual Router Redundancy Protocol (IPv6 VRRP) [RFC5798].
+
+      00-00-5E-00-52-00 through 00-00-5E-00-52-FF: used for very small
+         assignments.  Currently, 3 out of these 256 values have been
+         assigned.
+
+      00-00-5E-00-53-00 through 00-00-5E-00-53-FF: assigned for use in
+         documentation.
+
+   Multicast:
+
+      01-00-5E-00-00-00 through 01-00-5E-7F-FF-FF: 2**23 addresses
+         assigned for IPv4 multicast [RFC1112].
+
+      01-00-5E-80-00-00 through 01-00-5E-8F-FF-FF: 2**20 addresses
+         assigned for MPLS multicast [RFC5332].
+
+      01-00-5E-90-00-00 through 01-00-5E-90-00-FF: 2**8 addresses being
+         used for very small assignments.  Currently, 4 out of these 256
+         values have been assigned.
+
+      01-00-5E-90-10-00 through 01-00-5E-90-10-FF: 2**8 addresses for
+         use in documentation.
+
+   For more detailed and up-to-date information, see the "Ethernet
+   Numbers" registry at http://www.iana.org.
+
+2.1.2.  EUI-48 Documentation Values
+
+   The following values have been assigned for use in documentation:
+
+      00-00-5E-00-53-00 through 00-00-5E-00-53-FF for unicast and
+
+      01-00-5E-90-10-00 through 01-00-5E-90-10-FF for multicast.
+=cut
