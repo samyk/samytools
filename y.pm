@@ -376,13 +376,14 @@ sub out
 {
 	my $data = cat($_[0], 1);
 
-	if (!open(F, ">$_[0]"))
+  my $fh;
+	if (!open($fh, ">$_[0]"))
 	{
 		print STDERR "Can't write to $_[0]: $!";
 		return;
 	}
-	print F $_[1];
-	close(F);
+	print $fh $_[1];
+	close($fh);
 
 	return $data;
 }
@@ -390,13 +391,14 @@ sub out
 # append(filename, data[, 1 to not fail])
 sub append
 {
-	if (!open(F, ">>$_[0]") && !$_[2])
+  my $fh;
+	if (!open($fh, ">>$_[0]") && !$_[2])
 	{
-		print STDERR "Can't read $_[0]: $!";
+		print STDERR "Can't append to $_[0]: $!";
 		return;
 	}
-	print F $_[1];
-	close(F);
+	print $fh $_[1];
+	close($fh);
 }
 
 # readconf(file, don't die on fail, don't interpolate)
@@ -437,19 +439,20 @@ sub cat
   my ($dir, $nofail, $nointerp, $lines) = @_;
 
   $dir = $nointerp ? $dir : path($dir);
-	if (!open(F, "<$dir"))
-	{
-	  if (!$nofail)
+  my $fh;
+  if (!open($fh, "<$dir"))
+  {
+    if (!$nofail)
     {
       print STDERR "Can't read $dir: $!\n";
     }
-		return;
-	}
+    return;
+  }
 
-	my @data = $lines ? map { <F> } 1 .. $lines : <F>;
-	close(F);
+  my @data = $lines ? map { <$fh> } 1 .. $lines : <$fh>;
+  close($fh);
 
-	return wantarray ? @data : join "", @data;
+  return wantarray ? @data : join "", @data;
 }
 
 sub scat
