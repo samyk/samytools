@@ -1,0 +1,63 @@
+#!/usr/bin/perl
+#
+# compile/make/configure various languages
+# -samy kamkar
+
+use strict;
+
+my %files = (
+  'requirements.txt' => 'pip install -r requirements.txt',
+  'setup.py' => 'python setup.py install',
+  'configure' => './configure && make',
+  'Makefile' => 'make',
+  'Makefile.PL' => 'perl Makefile.PL && make',
+  'Rakefile' => 'rake',
+  'build.xml' => 'ant',
+  'build.gradle' => 'gradle',
+  'pom.xml' => 'mvn',
+  'build.sbt' => 'sbt',
+  'build.sh' => 'sh build.sh',
+  'build' => 'sh build',
+  'build.py' => 'python build.py',
+  'build.rb' => 'ruby build.rb',
+  'build.pl' => 'perl build.pl',
+  'build.coffee' => 'coffee build.coffee',
+  'build.js' => 'node build.js',
+  'build.go' => 'go run build.go',
+  'build.sh' => 'sh build.sh',
+
+  'build.php' => 'php build.php',
+  'build.cmd' => 'build.cmd',
+  'build.ps1' => 'powershell build.ps1',
+  'build.bat' => 'build.bat',
+);
+
+my $run;
+my @files = grep -e, keys %files;
+if (@files > 1)
+{
+  foreach my $file (@files)
+  {
+    my $cmd = parse($file);
+    print "$file > $cmd\n";
+    system($cmd);
+  }
+}
+elsif (@files == 1)
+{
+  my $cmd = parse($files[0]);
+  print "$files[0] > $cmd\n";
+  exec($cmd);
+}
+else
+{
+  print "no build files found\n";
+}
+
+sub parse
+{
+  my ($file) = @_;
+  my $cmd = $files{$file};
+  $cmd =~ s/<FILE>/$file/g;
+  return $cmd;
+}
