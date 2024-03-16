@@ -3,11 +3,12 @@
 # run a command every X seconds when a file/dir changes
 # -samy kamkar
 #
-# eg: onchange project/ rsync -av project/ remote.com:proj
+# eg: onchange [-s(ize)] project/ rsync -av project/ remote.com:proj
 
 use strict;
-my ($secs, $files, $commands) = usage();
+my ($secs, $size, $files, $commands) = usage();
 
+my $stat = $size ? 7 : 9; # size vs mtime
 my @files = @{$files};
 my @commands = @{$commands};
 
@@ -17,7 +18,7 @@ while (1)
 	my $change;
 	foreach my $file (@files)
 	{
-		($mtime{$file}) = (stat($file))[9];
+		($mtime{$file}) = (stat($file))[$stat];
 		if ($last{$file} != $mtime{$file})
 		{
 			$change++;
@@ -36,8 +37,15 @@ while (1)
 sub usage
 {
 	$|++;
+
+	my $size;
+	if ($ARGV[0] eq "-s")
+	{
+		$size = shift(@ARGV);
+	}
+
 	my $secs = 0.1;
-	if ($ARGV[0] =~ /^\d+$/)
+	if ($ARGV[0] =~ /^(\d+(\.\d*)?|\.\d+)$/)
 	{
 		$secs = shift(@ARGV);
 	}
@@ -45,15 +53,15 @@ sub usage
 	my @files;
 	push(@files, find(shift(@ARGV))) while -e $ARGV[0];
 
-	#my $file = -e $ARGV[-1] && !-e $ARGV[0] ? $ARGV[-1] : shift(@ARGV);
+	shift(@ARGV) if $ARGV[0] eq "--";
 	my @command = @ARGV;
 
 	if (!@files || !@command)
 	{
-		die "usage: $0 [secs] [files/dirs] <command to run on change>\n";
+		die "usage: $0 [secs] [files/dirs] [--] <command to run on change>\nsecs=$secs\nfiles=@files\ncommand=@command\n";
 	}
 
-	return ($secs, \@files, \@command);
+	return ($secs, $size, \@files, \@command);
 }
 
 sub find
