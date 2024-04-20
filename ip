@@ -6,16 +6,32 @@
 #
 # usage: ip [iface | 'gw']
 
+use strict;
+use Socket;
+
 my $eth = lc shift;
 
-# hostname
-if ($eth =~ /\./)
+# ip
+if ($eth =~ /^(\d+\.){3}\d+$/)
 {
-  print ((`dig +short $eth`)[0]);
-  exit;
+	print "$eth\n";
+	exit;
 }
 
-if (!$eth || $eth eq 'gateway' || $eth eq 'gw')
+# hostname (use inet_ntoa to support /etc/hosts + resolution)
+elsif (`ifconfig` !~ /^$eth:/m)
+{
+	my $inet = inet_aton($eth);
+	if ($inet)
+	{
+		my $addr = inet_ntoa($inet);
+		print "$addr\n";
+		#  print ((`dig +short $eth`)[0]);
+		exit;
+	}
+}
+
+elsif (!$eth || $eth eq 'gateway' || $eth eq 'gw')
 {
 	foreach (`/usr/sbin/netstat -nr`)
 	{
