@@ -1,0 +1,30 @@
+#!/usr/bin/perl
+#
+# move screenshots into this directory
+#
+# -samy kamkar
+
+use y;;;
+my $pwd = shift || pwd;
+my $path = shift || screenshot_path();
+die "screenshot directory not found: $path\n" unless -d $path;
+print "moving new screenshots from $path into $pwd...\n";
+
+while (my @f = watch_dir($path))
+{
+  for my $file (@f)
+  {
+    my ($fn) = (split(m~/~, $file))[-1];
+    if ($fn =~ /^(clean|screen)shot/i)
+    {
+      my $new = "$pwd/$fn";
+      print "$file -> $new\n";
+      rename($file, $new) or die "failed to move $file to $new: $!\n";
+    }
+    else
+    {
+      print "ignoring $file\n";
+    }
+  }
+}
+
