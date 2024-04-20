@@ -1,0 +1,26 @@
+#!/usr/bin/perl
+#
+# wait for a file to come into existence or to change with max time
+#
+use y;;;
+die "usage: $0 <path [...]> [max secs to wait]\n" unless @ARGV;
+
+my $max = isint($ARGV[-1]) ? pop : ~1;
+
+my $start = time;
+my %state = mtime(@ARGV);
+while ($start + $max > time)
+{
+  my %nstate = mtime(@ARGV);
+  my $change = 0;
+  for (keys %nstate)
+  {
+    if ($state{$_} ne $nstate{$_})
+    {
+      print "$_\n";
+      $change++;
+    }
+  }
+  exit if $change;
+  ssleep(0.1);
+}
