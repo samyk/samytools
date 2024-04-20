@@ -30,12 +30,31 @@ sub template
 }
 =cut
 
+# sleep supporting milliseconds
+sub ssleep { select(undef, undef, undef, $_[0]) }
+
 # pwd
 sub pwd { &cwd }
 sub cwd
 {
   use Cwd;
   return getcwd();
+}
+
+# are we on mac?
+sub mac { return $^O eq "darwin" }
+
+sub isint { return $_[0] =~ /^-?\d+$/ }
+sub isfloat { return $_[0] =~ /^-?(\d+\.?\d*|\.\d+)$/ }
+
+# copy into clipboard
+sub copy
+{
+  my $data = shift;
+  my $cmd = mac() ? "pbcopy" : "xclip";
+  open(my $fh, "|-", $cmd);
+  print $fh $data;
+  close($fh);
 }
 
 # udp socket
@@ -71,6 +90,12 @@ sub arp
       $s[1] => cleanmac($s[3])
   } runenv('arp -na');
   return @_ ? @arp{@_} : %arp;
+}
+
+# beep beep
+sub beep
+{
+  print "\a";
 }
 
 # host/ip to mac address
@@ -841,9 +866,13 @@ sub cdv
 }
 
 # change dir
-sub cd
+sub cd { return chdir($_[0]) }
+
+# last mod times
+sub mtime
 {
-  return chdir($_[0]);
+  my @times = map { $_ => (stat($_))[7] } @_;
+  return wantarray || @_ > 1 ? @times : $times[0];
 }
 
 # list all files
