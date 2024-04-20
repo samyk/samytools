@@ -4,9 +4,19 @@
 #
 # -samy kamkar
 #
-# usage: mac [iface | 'gw']
+# usage: mac [ip | iface | 'gw']
+
+use Socket;
+use Data::Dumper;
+use strict;
+
+my %arp = map {
+	my @s = split /[\s()]+/;
+	$s[1] => cleanmac($s[3])
+} `arp -na`;
 
 my $eth = lc shift;
+
 if (!$eth || $eth eq 'gateway' || $eth eq 'gw')
 {
 	foreach (`/usr/sbin/netstat -nr`)
@@ -15,17 +25,38 @@ if (!$eth || $eth eq 'gateway' || $eth eq 'gw')
 		{
 			if ($eth eq 'gw' || $eth eq 'gateway')
 			{
-				print arpmac($1), "\n";
+				print "$arp{$1}\n";
 				exit;
 			}
 			else
 			{
-				print "gateway: ", arpmac($1), "\n";
+				print "gateway: $arp{$1}\n";
 				last;
 			}
 		}
 	}
 }
+# ip to mac
+elsif ($arp{$eth})
+{
+	print "$arp{$eth}\n";
+	exit;
+}
+# host to mac?
+else
+{
+	my $inet = inet_aton($eth);
+	if ($inet)
+	{
+		my $addr = inet_ntoa($inet);
+		if ($arp{$addr})
+		{
+			print "$arp{$addr}\n";
+			exit;
+		}
+	}
+}
+
 
 my $card;
 foreach (`/sbin/ifconfig -a`)
@@ -36,22 +67,23 @@ foreach (`/sbin/ifconfig -a`)
 	}
 	elsif (/ether (\S+)/)
 	{
+		my $mac = cleanmac($1);
+
 		if ($eth && lc $card eq $eth)
 		{
-			print "$1\n";
+			print "$mac\n";
 		}
 		elsif (!$eth)
 		{
-			print "$card: $1\n";
+			print "$card: $mac\n";
 		}
 	}
 }
 
-sub arpmac
+sub cleanmac
 {
-  foreach (`arp -na`)
-  {
-    my @F = split;
-    return $F[3] if $F[1] eq "($_[0])";
-  }
+	my $mac = shift;
+	$mac = lc($mac);
+	$mac =~ s/(\w?)(\w)(:|$)/($1 || "0") . $2/eg;
+	return $mac;
 }
