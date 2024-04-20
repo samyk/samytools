@@ -18,6 +18,7 @@ use MIME::Base64 qw(decode_base64 encode_base64);
 use Data::Dumper;
 #use HTML::Entities;
 
+our %_y;
 =cut
 # functions typically accept one or more params
 # if it can support multiple params to do the same op on, it should return a list of the results UNLESS !wantaray and only one param, in which case it should return the single value
@@ -28,6 +29,92 @@ sub template
 {
 }
 =cut
+
+# pwd
+sub pwd { &cwd }
+sub cwd
+{
+  use Cwd;
+  return getcwd();
+}
+
+# udp socket
+sub udp
+{
+  return _sock('udp', @_)
+}
+
+sub tcp
+{
+  return _sock('tcp', @_)
+}
+
+sub _sock
+{
+  my ($proto, $host, $port, %opts) = @_;
+  use IO::Socket;
+  return IO::Socket::INET->new(
+    Proto    => $proto,
+    PeerAddr => $host,
+    PeerPort => $port || 1337,
+    %opts
+  )
+}
+
+# arp table
+sub arp
+{
+  my %arp = map
+  {
+    my @s = split /[\s()]+/;
+    $s[3] eq 'incomplete' ? () :
+      $s[1] => cleanmac($s[3])
+  } runenv('arp -na');
+  return @_ ? @arp{@_} : %arp;
+}
+
+# host/ip to mac address
+sub host2mac
+{
+  return arp(host2ip($_[0]));
+}
+
+# host to ip address
+sub host2ip
+{
+  use Socket;
+
+  my $host = shift;
+  return $host if $host =~ /^\d+\.\d+\.\d+\.\d+$/;
+
+	my $inet = inet_aton($host);
+  return inet_ntoa($inet) if $inet;
+}
+
+sub cleanmac
+{
+  my $mac = shift;
+  $mac = lc($mac);
+  $mac =~ s/(\w?)(\w)(\W|$)/($1 || 0) . $2/eg;
+  return $mac;
+}
+
+# rerun the script as root if not already
+sub rerun_as_root
+{
+  return if $< == 0;
+  my @sudo = grep -e, <{/usr,}/{s,}bin/sudo>;
+  die "no sudo" if !@sudo;
+  print STDERR "more than one sudo: @sudo\n" if @sudo > 1;
+
+  exec($sudo[0], $^X, $0, @ARGV);
+}
+
+# enable/disable utf8
+sub utf8
+{
+  binmode(STDOUT, shift ? ":utf8" : ":raw");
+}
 
 # helper for returning a single value vs list so single value list doesn't get treated in scalar context
 # caveat - multi only runs the func once if multiple
@@ -70,6 +157,25 @@ sub file
 
 #  return $out;
 }
+
+# safe run and return stdout but find path in env
+# in list context, returns list of lines, in scalar context returns single value
+sub vrunenv
+{
+  my $cmd = shift;
+  $cmd =~ s~^([^.\s/]+)(\s|$)~env_path($1) . $2~e;
+  return vrun($cmd, @_);
+}
+
+# safe run and return stdout but find path in env
+# in list context, returns list of lines, in scalar context returns single value
+sub runenv
+{
+  my $cmd = shift;
+  $cmd =~ s~^([^.\s/]+)(\s|$)~env_path($1) . $2~e;
+  return run($cmd, @_);
+}
+
 
 # safe run (verbose)
 sub runv
@@ -244,15 +350,35 @@ sub network
 
 sub getfile
 {
-  u("LWP::Simple", []);
-	my $path = shift;
+  #  u("LWP::Simple", []);
+  #  u("LWP::UserAgent", []);
+  #  $_y{ua} = new LWP::UserAgent;
+  #  $_y{ua}->agent("User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
+  #
+  #  $req = new HTTP::Request 'GET' => 'http://www.sn.no/libwww-perl';
+  #  $req->header('Accept' => 'text/html');
+  #  $res = $ua->request($req);
+  #
+	my $url = shift;
 	my $file = shift;
-	if (!$file && $path =~ /([^\/]+)$/)
+
+  # if we passed a dir, grab filename from url
+  if (-d $file)
+  {
+    my $dir = $file;
+    $url =~ m~/([^/]+)$~;
+    $file = "$dir/$1";
+  }
+  # no file passed, grab from url
+	elsif (!$file && $url =~ m~/([^/]+)$~)
 	{
 		$file = $1;
 	}
 
-	out($file, LWP::Simple::get($path));
+  print "out($file, get($url))\n";
+  return `wget -q -O $file -4 -c -e robots=off --no-check-certificate --user-agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.42 Safari/537.36" --header="Accept: text/xml,application/xml,application/xhtml+xml,text/html;q=0.9,text/plain;q=0.8,image/png,*/*;q=0.5" --header="Accept-Language: en-us,en;q=0.5" --header="Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.7" --header="Keep-Alive: 300" $url`;
+  #out($file, get($url));
+  ##out($file, LWP::Simple::get($url));
 	return $file;
 }
 
@@ -311,8 +437,25 @@ sub ddb
 
 sub get
 {
-  u("LWP::Simple", []);
-  return LWP::Simple::get(@_);
+  #u("LWP::Simple", []);
+  #return LWP::Simple::get(@_);
+
+  # todo - move to LWP, need better headers to avoid detection
+  return `wget -q -O - -4 -c -e robots=off --no-check-certificate --user-agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.42 Safari/537.36" --header="Accept: text/xml,application/xml,application/xhtml+xml,text/html;q=0.9,text/plain;q=0.8,image/png,*/*;q=0.5" --header="Accept-Language: en-us,en;q=0.5" --header="Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.7" --header="Keep-Alive: 300" @_`;
+
+  my @cmd = (qw|wget -4 -c -e robots=off --no-check-certificate|, '--user-agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.42 Safari/537.36"', qw|--header="Accept:text/xml,application/xml,application/xhtml+xml,text/html;q=0.9,text/plain;q=0.8,image/png,*/*;q=0.5" --header="Accept-Language:en-us,en;q=0.5" --header="Accept-Charset:ISO-8859-1,utf-8;q=0.7,*;q=0.7" --header="Keep-Alive:300"|);
+
+  my $html = run(@cmd, @_);
+  return $html;
+
+  #u("LWP::UserAgent", []);
+  #$_y{ua} = new LWP::UserAgent;
+  #$_y{ua}->agent("User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
+
+  #$_y{req} = new HTTP::Request 'GET' => $_[0];
+  #$_y{req}->header('Accept' => 'text/html');
+  #$_y{res} = $_y{ua}->request($_y{req});
+  #return $_y{res}->content;
 }
 
 # use a module, die if it doesn't exist (or offer to install?)
@@ -703,10 +846,63 @@ sub cd
   return chdir($_[0]);
 }
 
+# list all files
+sub ls
+{
+  my ($dir, $recurse) = @_;
+  my @files = <$dir/*>;
+  map { push @files, ls($_, 1) } grep { -d } @files;
+  return @files;
+}
+
+# list -> hash
+sub h { return map { $_ => 1 } @_ }
+
+# watch dir for new files
+sub watch_dir
+{
+  my ($dir, $sleep) = @_;
+  $sleep ||= 1;
+
+  # track time so if we're watching in the past few seconds, we use old files
+  my %files = time() - $_y{watch_dir_time} > 5 ? h ls($dir, 1) : %{$_{watch_dir_files}};
+  %{$_{watch_dir_files}} = %files;
+  $_y{watch_dir_time} = time();
+
+  while (1)
+  {
+    my @new = grep { !$files{$_} } ls($dir, 1);
+    return @new if @new;
+    sleep($sleep);
+  }
+}
+
+sub screenshot_path
+{
+  my @paths = grep -d, (
+    env_path("screenshots", "screenshot"),
+    "$ENV{HOME}/Screenshots",
+    "$ENV{HOME}/Desktop/Screenshots",
+    "$ENV{HOME}/Dropbox/Screenshots",
+    "$ENV{HOME}/Desktop",
+  );
+  return wantarray ? @paths : $paths[0];
+}
+
 # get path of something from env variable, otherwise use default
 sub env_path
 {
-  return $ENV{"$_[0]_PATH"} || $_[0];
+  my @cmd = @_;
+  my $nodefault = $cmd[-1] == 1 ? pop(@cmd) : 0;
+
+  if (@cmd > 1)
+  {
+    my @paths = grep { env_path($_, 1) } @cmd;
+    return wantarray ? @paths : $nodefault ? $paths[0] : $paths[0] || $cmd[0];
+  }
+  my $cmd = $cmd[0];
+
+  return $ENV{"${cmd}_PATH"} || $ENV{lc($cmd) . "_PATH"} || $ENV{uc($cmd) . "_PATH"} || $nodefault ? undef : $cmd;
 }
 
 # is stdin piped in?
