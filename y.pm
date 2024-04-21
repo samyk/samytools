@@ -7,18 +7,21 @@ $|++;
 
 use strict;
 no strict 'subs';
+
 #use lib "/Users/samy/Code/samyweb";
 #use samyweb;
 
 #use Date::Manip;
 #use Storable qw/freeze thaw/;
-use POSIX qw(strftime ceil floor);
-use MIME::Base64 qw(decode_base64 encode_base64);
 #use HTML::Parser;
-use Data::Dumper;
 #use HTML::Entities;
 
+use POSIX qw(strftime ceil floor);
+use MIME::Base64 qw(decode_base64 encode_base64);
+use Data::Dumper;
+
 our %_y;
+
 =cut
 # functions typically accept one or more params
 # if it can support multiple params to do the same op on, it should return a list of the results UNLESS !wantaray and only one param, in which case it should return the single value
@@ -29,6 +32,54 @@ sub template
 {
 }
 =cut
+
+# get function name
+sub fn { (caller(1))[3] }
+
+# open file unless already open and return fh
+sub fopen
+{
+  my ($file, $msg) = @_;
+  return $_y{f}{$file} if $_y{f}{$file};
+
+  open($_y{f}{$file}, $file) || ($msg ? die "$msg: $!\n" : return);
+  return $_y{f}{$file};
+}
+
+# first element of list
+sub first { $_[0] }
+
+# close file and remove cached fh
+sub fclose
+{
+  my $file = shift;
+  close($file);
+  delete $_y{f}{ first grep { $file eq $_y{f}{$_} } keys %{$_y{f}} };
+}
+
+# quickly and efficiently loop through file
+# line(filepath, ["error to die with"])
+sub line
+{
+  my $f = fopen(@_);
+
+  # closed so exit the calling while
+  if (eof $f)
+  {
+    fclose($f);
+    return;
+  }
+  return <$f>;
+}
+
+# look for custom args to test script with
+sub s4args
+{
+  while ($_ = line($_[0]))
+  {
+    return $2 if m~^\s*(#|//)\s*s4args\s*(.*)~;
+  }
+}
 
 # sleep supporting milliseconds
 sub ssleep { select(undef, undef, undef, $_[0]) }
@@ -201,6 +252,11 @@ sub runenv
   return run($cmd, @_);
 }
 
+sub execv
+{
+  print STDERR join(" ", map { "'$_'" } @_), "\n";
+  exec(@_);
+}
 
 # safe run (verbose)
 sub runv
@@ -735,7 +791,7 @@ sub forksub
 
 	if (!$__pm)
 	{
-		$__pm = new Parallel::ForkManager($max); 
+		$__pm = new Parallel::ForkManager($max);
 	}
 
 	$__pm->start and next;
@@ -878,8 +934,8 @@ sub mtime
 # list all files
 sub ls
 {
-  my ($dir, $recurse) = @_;
-  my @files = <$dir/*>;
+  my $recurse = $_[-1] =~ /^[01]$/ ? pop : 0;
+  my @files = map { <$_/*> } @_;
   map { push @files, ls($_, 1) } grep { -d } @files;
   return @files;
 }
@@ -887,35 +943,53 @@ sub ls
 # list -> hash
 sub h { return map { $_ => 1 } @_ }
 
-# watch dir for new files
+# watch dir(s) for new files
 sub watch_dir
 {
-  my ($dir, $sleep) = @_;
-  $sleep ||= 1;
+  my $sleep = $_[-1] =~ /^\d+$/ ? pop : 1;
+  my @paths = @_;
 
   # track time so if we're watching in the past few seconds, we use old files
-  my %files = time() - $_y{watch_dir_time} > 5 ? h ls($dir, 1) : %{$_{watch_dir_files}};
+  my %files = time() - $_y{watch_dir_time} > 5 ? h ls(@paths, 1) : %{$_{watch_dir_files}};
   %{$_{watch_dir_files}} = %files;
   $_y{watch_dir_time} = time();
 
   while (1)
   {
-    my @new = grep { !$files{$_} } ls($dir, 1);
+    my @new = grep { !$files{$_} } ls(@paths, 1);
     return @new if @new;
     sleep($sleep);
   }
 }
 
+sub find_path
+{
+  my ($envs, $paths) = @_;
+  my @paths = grep { -d } env_path(@{$envs}), @{$paths};
+  return wantarray ? @paths : $paths[0];
+}
+
+sub download_path
+{
+  return find_path(["downloads", "download"], ["$ENV{HOME}/Downloads"]);
+  #my @paths = grep -d, (
+  #  env_path("downloads", "download"),
+  #  "$ENV{HOME}/Downloads",
+  #);
+  #return wantarray ? @paths : $paths[0];
+}
+
 sub screenshot_path
 {
-  my @paths = grep -d, (
-    env_path("screenshots", "screenshot"),
-    "$ENV{HOME}/Screenshots",
-    "$ENV{HOME}/Desktop/Screenshots",
-    "$ENV{HOME}/Dropbox/Screenshots",
-    "$ENV{HOME}/Desktop",
+  return find_path(
+    ["screenshots", "screenshot"],
+    [
+      "$ENV{HOME}/Screenshots",
+      "$ENV{HOME}/Desktop/Screenshots",
+      "$ENV{HOME}/Dropbox/Screenshots",
+      "$ENV{HOME}/Desktop",
+    ]
   );
-  return wantarray ? @paths : $paths[0];
 }
 
 # get path of something from env variable, otherwise use default
