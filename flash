@@ -13,7 +13,6 @@
 
 use y;;;
 use strict;
-
 my $PKG = "package.json";
 
 my $compile = $ARGV[0] eq "-c" && shift;
@@ -22,6 +21,9 @@ my $npm = -e $PKG && json($PKG)->{scripts}{start};
 my $SBUILD = "samybuild";
 my $sbuild = -e $SBUILD;
 my $name = shift || "desk" || "p"; # particle board name or file name
+my $file = file($name);
+my $py = $file =~ /^Python/;
+my $pl = $file =~ /^Perl/;
 my ($ext) = ($name =~ /\.(\w+)$/);
 my $board = shift || "photon";
 
@@ -35,12 +37,6 @@ if ($sbuild)
   system($compile ? ("perl", $SBUILD, "-r") : ("perl", $SBUILD));
 }
 
-# platformio
-elsif ($pio)
-{
-  system($compile ? ($PLATFORMIO, qw/run -v/) : ($PLATFORMIO, qw/run -v --target upload/));
-}
-
 # npm start
 elsif ($npm)
 {
@@ -48,15 +44,26 @@ elsif ($npm)
 }
 
 # pl file
-elsif ($ext eq "pl")
+elsif ($pl || $ext eq "pl")
 {
-  system("perl", $name);
+  my @args = s4args($name);
+  system("perl", $name, @args);
 }
 
 # js file
 elsif ($ext eq "js")
 {
-  system("node", $name);
+  my @args = s4args($name);
+  system("node", $name, @args);
+}
+
+# py file
+elsif ($py || $ext eq "py")
+{
+  my $env = first cat($name);
+  die $env;
+  my @args = s4args($name);
+  system($env =~ /^#!env\s+(\S+)/ ? $1 : "python", $name);
 }
 
 # c/cpp file
@@ -68,7 +75,13 @@ elsif ($ext eq "c" || $ext eq "cpp")
   $code =~ /void\s+setup\s*\(/ ? particle() : c();
 }
 
-# particle
+# platformio
+elsif ($pio)
+{
+  system($compile ? ($PLATFORMIO, qw/run -v/) : ($PLATFORMIO, qw/run -v --target upload/));
+}
+
+# assuming particle
 else
 {
   particle();
