@@ -1,0 +1,84 @@
+#!/usr/bin/perl
+#
+# download all urls that appear in the clipboard (or argv)
+# without downloading the same url twice
+#
+# useful for grabbing multiple files from page source and
+# quickly ctrl/cmd+c'ing a bunch of urls
+#
+# -samy kamkar
+
+use y;;;
+
+# max number, 0 means infinite
+my $MAX_DL = 0;
+my $SLEEP = 0.1;
+my $PASTE_CMD = 'pbpaste';
+
+my $last;
+my %dl;
+
+if ($ARGV[0] =~ /^\d+$/)
+{
+  $MAX_DL = shift @ARGV;
+}
+elsif (@ARGV)
+{
+  dl($_) for @ARGV;
+}
+else
+{
+  print "downloading once url in paste buffer\n";
+  do
+  {
+    chomp(my $clipboard = `$PASTE_CMD`);
+    dl($clipboard);
+    select(undef, undef, undef, $SLEEP);
+  } while (--$MAX_DL != 0);
+}
+
+sub dl
+{
+  my $clipboard = shift;
+  $clipboard =~ s/^\s*|\s*$//g;
+
+  if ($last ne $clipboard)
+  {
+    $last = $clipboard;
+    if ($clipboard =~ m`^\w+://|^[\w-]+\.[\w-]+`)
+    {
+      beep();
+			# only get if we haven't gotten
+    	if (!$dl{$clipboard}++)
+			{
+				print "downloading $clipboard\n";
+        # run in background
+        #
+				exec($clipboard =~ m~^(git|\w+://([\w-]+\.)?github\.com/)~ ? ("git", "clone", "--depth=1", $clipboard) : ("wget", "-O", rm_ques(file_from_url($clipboard)), $clipboard)) if !fork();
+			}
+			else
+			{
+				# beep
+				print "already downloaded $clipboard\n";
+				select(undef, undef, undef, 0.15);
+
+        beep();
+				print "\n";
+			}
+    }
+    else
+    {
+      print "ignoring $clipboard\n";
+    }
+  }
+}
+
+sub beep
+{
+  my $old = $|;
+  $| = 1;
+  print "\a";
+  $| = $old;
+}
+
+use strict;
