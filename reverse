@@ -1,14 +1,15 @@
 #!/usr/bin/perl
 
+use y;;;
 use strict;
-die "usage: [-s(tring)] <data [...]>\n" unless @ARGV;
+
+die "usage: [-s(tring)] <data [...]>\n" unless @ARGV || piped();
 if ($ARGV[0] eq "-s")
 {
   shift;
-  print reverse($_) . "\n" for @ARGV;
+  print reverse($_) . "\n" for piped() ? <> : @ARGV;
 }
 else
 {
-  @ARGV = reverse @ARGV;
-  print "@ARGV\n";
+  print reverse piped() ? <> : join(" ", reverse @ARGV);
 }
