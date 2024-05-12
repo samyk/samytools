@@ -1,10 +1,12 @@
 #!/usr/bin/perl
 #
-# convert image to text from a file or url
+# OCR and image (extract text) from a file/url
+# - wrapper for tesseract and imagemagick
 #
 # -samy kamkar 2020/12/06
 
 use strict;
+use y;;;
 die "usage: $0 <path/url to image>\n" unless @ARGV == 1;
 
 my $TESSERACT = "tesseract"; # ocr engine
@@ -20,20 +22,25 @@ my $rand = time();
 if (!-e $file)
 {
   my $nf = "$DIR/.ocr.get.$rand";
-  system($WGET, $file, "-O", $nf);
+  runv($WGET, $file, "-O", $nf);
   $file = $nf;
 }
 
 my $img = "$DIR/.ocr.new.$rand.png";
-system($CONVERT, $file, @convopts, $img);
+runv($CONVERT, $file, @convopts, $img);
 #system("open", $img);
 
+# tesseract needs to operate in the directory for some reason?
+# otherwise get no such file (in a specific version)
+
+chdir($DIR);
 # run tesseract and output to file, it adds .txt to end
 my $out = "$DIR/.ocr.out.$rand";
-system($TESSERACT, $img, $out);
+runv($TESSERACT, $img, $out);
 $out .= ".txt";
 
 # read our file
-open(OUT, "<$out") || die $!;
-print while <OUT>;
-close(OUT);
+print cat($out);
+#open(OUT, "<$out") || die $!;
+#print while <OUT>;
+#close(OUT);
