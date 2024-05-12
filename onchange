@@ -51,14 +51,23 @@ sub usage
 	}
 
 	my @files;
-	push(@files, find(shift(@ARGV))) while -e $ARGV[0];
+	# find our files to monitor, though if we pass a ./executable then consider that the first command to run
+	push(@files, find(shift(@ARGV))) while -e $ARGV[0] && !($ARGV[0] =~ m~^\./~ && -x $ARGV[0]);
 
+	# allow -- to split between files vs exec manually
 	shift(@ARGV) if $ARGV[0] eq "--";
 	my @command = @ARGV;
 
+	# if there's no command and our first file is executable, then run that
+	if (!@command && -x $files[0])
+	{
+		@command = $files[0] =~ m~^[./]~ ? $files[0] : "./$files[0]";
+	}
+
 	if (!@files || !@command)
 	{
-		die "usage: $0 [secs] [files/dirs] [--] <command to run on change>\nsecs=$secs\nfiles=@files\ncommand=@command\n";
+		#print STDERR "secs=$secs\nfiles=@files\ncommand=@command\n";
+		die "usage: $0 [secs] [files/dirs] [--] [command to run on change]\n";
 	}
 
 	return ($secs, $size, \@files, \@command);
