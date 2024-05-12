@@ -1,0 +1,28 @@
+#!/usr/bin/perl
+
+use strict;
+
+die << "EOF" unless @ARGV;
+usage: $0 <files>
+removes '?[extra]' from filenames
+if not a file, simply removes and prints
+EOF
+
+foreach my $orig (@ARGV)
+{
+  my $new = $orig;
+  if ($new =~ s/\\?\?.*//)
+  {
+    if (-e $orig)
+    {
+      print rename($orig, $new) ?
+        "$orig -> $new\n" :
+        "ERROR: $orig -> $new failed: $!\n";
+    }
+    else
+    {
+      print "$new\n";
+      print STDERR "WARNING: $orig does not exist\n";
+    }
+  }
+}
