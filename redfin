@@ -1,0 +1,51 @@
+#!/usr/bin/perl
+#
+# download redfin images
+#
+
+use y;;;
+use strict;
+use LWP::Simple qw//;
+
+@ARGV=(1);
+die "usage: $0 <url>\n" unless @ARGV;
+
+dl($_) for @ARGV;
+
+sub dl
+{
+  my $url = shift;
+  $url =~ s/\?.*//;
+  #  my $html = get($url);
+  my $html = cat("7102948");
+
+  my ($dir) = ($html =~ /<title>(.*?)</);
+  $dir =~ s/\|.*//;
+  $dir =~ s/,(\s+\w+)+, (\w\w) (\d+)/$3/;
+  $dir =~ s/[^a-zA-Z0-9]//g;
+  $dir = lc($dir);
+
+  mkdir($dir);
+  my ($img) = ($html =~ /href="([^"]+\.jpg)"/);
+
+  my %imgs;
+  dlimg($dir, $img);
+
+  while ($html =~ s~\\?"fileName\\?":\\"([^/"]+\.jpg)\\?"~~)
+  {
+    #print "$1\n" if !$imgs{$1}++;
+    my $file = $1;
+    $img =~ s~/[^/]+$~/$file~ if $file;
+    dlimg($dir, $img);
+  }
+}
+
+sub dlimg
+{
+  my ($dir, $url, $file) = @_;
+  print "$dir - $url\n";
+  my $path = getfile($url, $dir);
+  my @stat = stat($path);
+  unlink $path if $stat[7] == 0;
+  sleep(1);
+}
