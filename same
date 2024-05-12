@@ -54,8 +54,18 @@ foreach my $md5 (grep { @{$md5{$_}} > 1 } keys %md5)
 	  my $didrm = "";
 		if (!$f && $rm)
     {
-      unlink($file);
-      $didrm = " (REMOVED)";
+			if ($rm == 1)
+			{
+				print "$md5: $file\n";
+				print "Are you sure you want to remove `$file`? future files will be removed without asking. (y/n) ";
+				chomp(my $ans = <STDIN>);
+				$rm = 2 if $ans eq "y";
+			}
+			if ($rm == 2)
+			{
+				unlink($file);
+				$didrm = " (REMOVED)";
+			}
     }
     $f = 0;
 		print "$md5: $file$didrm";
