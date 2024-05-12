@@ -16,7 +16,7 @@ use strict;
 my $PKG = "package.json";
 
 my $compile = $ARGV[0] eq "-c" && shift;
-my $pio = -e "platformio.ini"; # true if we are working with pio
+my $pio = map { -e $_ || -e "../$_" } "platformio.ini"; # true if we are working with pio
 my $npm = -e $PKG && json($PKG)->{scripts}{start};
 my $SBUILD = "samybuild";
 my $sbuild = -e $SBUILD;
@@ -78,7 +78,8 @@ elsif ($ext eq "c" || $ext eq "cpp")
 # platformio
 elsif ($pio)
 {
-  system($compile ? ($PLATFORMIO, qw/run -v/) : ($PLATFORMIO, qw/run -v --target upload/));
+  my @opts = -e "../platformio.ini" ? ("-d", "..") : ();
+  system($compile ? ($PLATFORMIO, qw/run -v/, @opts) : ($PLATFORMIO, qw/run -v --target upload/, @opts));
 }
 
 # assuming particle
