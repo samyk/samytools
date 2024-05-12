@@ -5,6 +5,7 @@
 # firstfile [-n (doesn't exist)] <'cmd' | 'cmd FILE rest'> <files ...>
 
 use y;;;
+use strict;
 use Getopt::Long;
 
 my %opts;
@@ -12,7 +13,6 @@ GetOptions(\%opts, 'noexist|n') or usage();
 usage() unless @ARGV >= 2;
 my ($cmd, @files) = @ARGV;
 
-print "files=@files\n";
 my $file = first grep { $opts{noexist} ? !-e : -e } @files;
 $cmd =~ s/FILE/$file/g || ($cmd .= " '$file'");
 execv($cmd);
@@ -20,6 +20,6 @@ execv($cmd);
 sub usage
 {
   print STDERR "$_[0]\n" if @_;
-  die "usage: $0 [-n (doesn't exist)] <'cmd' | 'cmd FILE rest'> <files ...>\n";
+  die "usage: $0 [-n(oexist)] <'cmd' | 'cmd FILE rest'> <files ...>\n";
 }
-# s4args -nv
+# s4args -n
