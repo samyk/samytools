@@ -1,24 +1,29 @@
 #!/usr/bin/perl
 #
-# move screenshots into this directory
+# move screenshots into current/argv directory
+# add path to clipboard and beep
 #
 # -samy kamkar
 
 use y;;;
 my $pwd = shift || pwd;
-my $path = shift || screenshot_path();
-die "screenshot directory not found: $path\n" unless -d $path;
-print "moving new screenshots from $path into $pwd...\n";
+my $sspath = shift || screenshot_path();
+my $dlpath = shift || download_path();
+my %paths = h ($sspath, $dlpath, @ARGV);
+map { die "screenshot directory not found: $_\n" unless -d $_ } keys %paths;
+print "moving screenshots/images from " . join(" & ", keys %paths) . " into $pwd...\n";
 
-while (my @f = watch_dir($path))
+while (my @f = watch_dir(keys %paths))
 {
   for my $file (@f)
   {
     my ($fn) = (split(m~/~, $file))[-1];
-    if ($fn =~ /^(clean|screen)shot/i)
+    if ($fn =~ /^(cleanshot|screenshot|img_)/i)
     {
       my $new = "$pwd/$fn";
       print "$file -> $new\n";
+      copy($new);
+      beep();
       rename($file, $new) or die "failed to move $file to $new: $!\n";
     }
     else
