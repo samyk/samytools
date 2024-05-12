@@ -104,6 +104,10 @@ unless ($baseconv || $baseconv =~ /^calc/i) {
    &help();
    $data = "";
   }
+  elsif ($data =~ /^!(.*)/)
+  {
+    system($1);
+  }
   elsif ($data =~ /^\s*(?:die|quit|exit)\s*$/mi) {
    $alive = 0; # die later in case we have unfinished business
   }
