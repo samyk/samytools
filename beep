@@ -1,0 +1,18 @@
+#!/usr/bin/perl
+#
+# play beep sound after running commands
+# -samy kamkar
+
+my $PLAY = "play";
+my $SOUND = "~/b/sounds/ding-ding-noise.mp3";
+
+beep() if @ARGV && system("@ARGV"); # play twice if we fail
+beep();
+
+sub beep
+{
+  close(STDERR);
+  close(STDOUT);
+  exit if fork();
+  system($PLAY, $SOUND);
+}
