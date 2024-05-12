@@ -1,0 +1,58 @@
+#!/usr/bin/perl
+#
+# run a command with a copy of the paste buffer
+# optionally if it matches a regex, don't repeat
+#
+# -samy kamkar
+
+# max number, 0 means infinite
+use y;;;
+use strict;
+
+my %o = optusage('[-r <regex>]', '[-n(o beep)]', '[-m(axruns) <runs>]', '[-a(llow repeat)]', '[-s(leep) <secs (default 0.1)>]', '<command VAR ...>');
+
+#die Dumper(\%o);
+my (%ran, $last);
+#s4args ls VAR
+
+do
+{
+  my $clipboard = paste();
+  gorun($clipboard);
+  select(undef, undef, undef, $o{s});
+} while (--$o{m} != 0);
+
+sub gorun
+{
+  my $clipboard = shift;
+  $clipboard =~ s/^\s*|\s*$//g;
+
+  if ($last ne $clipboard)
+  {
+    $last = $clipboard;
+    if (defined $o{r} ? $clipboard =~ /^$o{r}$/ : 1)
+    {
+      beep();
+			# only get if we haven't gotten
+    	if (!$ran{$clipboard}++ || $o{a})
+			{
+        my @run = @{$o{args}};
+        s/VAR/$clipboard/g for @run;
+        runv(@run);
+			}
+			else
+			{
+				# beep
+				print "already saw $clipboard\n";
+				select(undef, undef, undef, $o{s});
+
+        beep();
+				print "\n";
+			}
+    }
+    else
+    {
+      print "ignoring $clipboard\n";
+    }
+  }
+}
