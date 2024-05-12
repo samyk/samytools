@@ -33,8 +33,25 @@ sub template
 }
 =cut
 
+# is data piped to us
+sub piped { !-t }
+
 # get function name
 sub fn { (caller(1))[3] }
+
+# return helper for returning single value vs list to avoid scalar context for single items
+# combine mapw and this
+sub ret { !wantarray && @_ == 1 ? $_[0] : @_ }
+
+# get filename from url
+sub file_from_url { return shift =~ m~([^/]+)$~ ? $1 : "index" }
+
+# remove question marks such as from filenames
+sub rm_ques
+{
+  s/\?.*// for @_;
+  &ret;
+}
 
 # open file unless already open and return fh
 sub fopen
@@ -73,12 +90,14 @@ sub line
 }
 
 # look for custom args to test script with
+# s4args --arg1 -bc etc
 sub s4args
 {
   while ($_ = line($_[0]))
   {
-    return $2 if m~^\s*(#|//)\s*s4args\s*(.*)~;
+    return split /\s+/, $2 if m~^\s*(#|//)\s*s4args\s*(.*)~;
   }
+  return ();
 }
 
 # sleep supporting milliseconds
@@ -98,11 +117,18 @@ sub mac { return $^O eq "darwin" }
 sub isint { return $_[0] =~ /^-?\d+$/ }
 sub isfloat { return $_[0] =~ /^-?(\d+\.?\d*|\.\d+)$/ }
 
+# paste from clipboard
+sub paste
+{
+  my @cmd = mac() ? env_path("pbpaste") : (env_path("xclip"), "-sel");
+  return run(@cmd);
+}
+
 # copy into clipboard
 sub copy
 {
   my $data = shift;
-  my $cmd = mac() ? "pbcopy" : "xclip";
+  my $cmd = env_path(mac() ? "pbcopy" : "xclip");
   open(my $fh, "|-", $cmd);
   print $fh $data;
   close($fh);
@@ -146,7 +172,10 @@ sub arp
 # beep beep
 sub beep
 {
+  my $old = $|;
+  $| = 1;
   print "\a";
+  $| = $old;
 }
 
 # host/ip to mac address
@@ -218,6 +247,68 @@ sub multiw
 {
   !wantarray && @_ == 1 ? $_[0] : @_
 }
+
+# generates+validates usage and parses command line options
+# %opts = optusage('[-r <regex>]', '[-n(o repeat)]', '[-s(leep) <secs (default 0.1)>]', '<file ...>')
+sub optusage
+{
+  use Getopt::Long qw(GetOptionsFromArray);
+  my (%opts, %defaults, @opts, $usage, $req, $reqmore);
+
+  # go through command line opts
+  for (@_)
+  {
+    # `-x` or `-n(ame)` or `-x (name)`
+    if (my ($char, $space, $name, $value) = /^\[ -(.) (\s*) (?:\( (.*?) \)?)? \s* (?:<(.*?)>)? \]$/x)
+    {
+      $name &&= $char . $name if !length $space;
+      $name &&= "$name|";
+
+      # extract default if there
+      $defaults{$char} = $1 if $value =~ s/\s*\(?default[=\s]*(.*?)\)?$//;
+
+      # determine float or string (future support int, ints in default could be floating though)
+      my $valtype = $defaults{$char} =~ /^\d*\.?\d+$/ ? 'f' : 's';
+      #$value &&= "=$valtype" if length $value;
+      $value &&= $name ? "=$valtype" : "|$value=$valtype";
+      $name  =~ s/\s//g;
+      $value =~ s/\s//g;
+      #print "$_ -> opt=$name$char$value name=$name val=$value type=$valtype def=$def char=$char\n";
+      push @opts, $name . $char . $value;
+    }
+
+    # <required>
+    elsif (my ($reqname, $more) = /^<(.*?)\s*(\[?\.\.\.?\]?)?>$/)
+    {
+      $req++;
+      $reqmore++ if $more;
+    }
+
+    # unknown or not supported yet
+    else
+    {
+      die "unknown usage() method: $_\n";
+    }
+
+    $usage .= "$_ ";
+  }
+
+  #GetOptionsFromArray(\@ARGV, \%opts, @opts);
+  GetOptions(\%opts, @opts) &&
+      (
+        (@ARGV == $req) ||
+        (@ARGV >= $req && $reqmore)
+      )
+      or die "usage: $0 $usage\n";
+
+  $opts{args} = [@ARGV] if @ARGV;
+  for (keys %defaults)
+  {
+    $opts{$_} = $defaults{$_} if !defined $opts{$_};
+  }
+  return %opts;
+}
+
 
 # return file type
 sub file
