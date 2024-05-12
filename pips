@@ -3,11 +3,25 @@
 # annoyingly use every pip/pip3 i have to do things
 use strict;
 
-my @vers = qw/2 2.6 2.7 3 3.5 3.6 3.7 3.8/;
+#(paths pip pip3) | perl -e'while(<STDIN>){@F=split;for$lib(@ARGV){foreach(`paths python3 python`){chomp;s/\s.*//; system"$_ $F[0] install $lib"}}}' pyedbglib
+
+my @vers = (2, 3, map({ "2.$_" } 6 .. 7), map({ "3.$_" } 5 .. 13));
+#my @vers = qw/2 2.6 2.7 3 3.5 3.6 3.7 3.8 3.9 3.10 3.11 3.12 3.13/;
 my $vers = join " ", map { ("pip$_", "pip-$_") } @vers;
-foreach my $pip (`paths pip $vers`)
+my @pys = ("python", map { "python$_" } @vers);
+my @pypaths = map { /^(\S+)/; $1 } `paths @pys`;
+
+for my $pip (`paths pip $vers`)
 {
   chomp($pip);
-  print "running: $pip @ARGV\n";
+  my ($pippath) = split(/\s+/, $pip);
+
+  for my $py (@pypaths)
+  {
+    #  system($pypath, $pip, @ARGV);
+    #    print "running: $py $pippath @ARGV\n";
+  }
+
+  print "running: $pippath @ARGV\n";
   #system($pip, @ARGV);
 }
