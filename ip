@@ -9,6 +9,7 @@
 use strict;
 use Socket;
 
+my $IFCONFIG = '/sbin/ifconfig';
 my $eth = lc shift;
 
 # ip
@@ -18,19 +19,7 @@ if ($eth =~ /^(\d+\.){3}\d+$/)
 	exit;
 }
 
-# hostname (use inet_ntoa to support /etc/hosts + resolution)
-elsif (`ifconfig` !~ /^$eth:/m)
-{
-	my $inet = inet_aton($eth);
-	if ($inet)
-	{
-		my $addr = inet_ntoa($inet);
-		print "$addr\n";
-		#  print ((`dig +short $eth`)[0]);
-		exit;
-	}
-}
-
+# gateway or no interface/host specified
 elsif (!$eth || $eth eq 'gateway' || $eth eq 'gw')
 {
 	foreach (`/usr/sbin/netstat -nr`)
@@ -51,8 +40,24 @@ elsif (!$eth || $eth eq 'gateway' || $eth eq 'gw')
 	}
 }
 
+# hostname (use inet_ntoa to support /etc/hosts + resolution)
+elsif (`$IFCONFIG` !~ /^$eth:/m)
+{
+	my $inet = inet_aton($eth);
+	if ($inet)
+	{
+		my $addr = inet_ntoa($inet);
+		print "$addr\n";
+		#  print ((`dig +short $eth`)[0]);
+		exit;
+	}
+}
+
+# ?
+else { die "unsupported arg: $eth (@ARGV)\n"; }
+
 my $card;
-foreach (`/sbin/ifconfig -a`)
+foreach (`$IFCONFIG -a`)
 {
 	if (/^(\w+):/)
 	{
