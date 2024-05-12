@@ -1,0 +1,33 @@
+#!/usr/bin/perl
+
+use strict;
+use POSIX;
+use y;;;
+
+my $BREW = $ENV{BREWPATH} || "brew";
+my $PORT = $ENV{PORTPATH} || "port";
+my $uid = $<;
+
+rerun_as_root();
+
+runv($PORT, qw/selfupdate/);
+
+# store for later
+my @port_outdated = runv($PORT, qw/outdated/);
+
+# port stops all upgrades on first error so go through each
+for my $port (map { (split /\s+/)[0] } @port_outdated)
+{
+  runv($PORT, qw/upgrade/, $port);
+}
+
+# show outdated again if any
+runv($PORT, qw/outdated/);
+
+
+POSIX::setuid($uid);
+print "$uid\n";
+runv($BREW, qw/update/);
+runv($BREW, qw/outdated/);
+runv($BREW, qw/upgrade/);
+runv($BREW, qw/outdated/);
