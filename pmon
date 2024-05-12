@@ -20,6 +20,29 @@ if ($pini)
   my $env = "env:$pio{platformio}{default_envs}";
   push(@pio, "-p", $pio{$env}{upload_port}  ) if $pio{$env}{upload_port};
   push(@pio, "-b", $pio{$env}{monitor_speed}) if $pio{$env}{monitor_speed};
+
+  # if no baud rate, let's see if we can find it in code
+  if (!$pio{$env}{monitor_speed})
+  {
+    my $src = $pio{$env}{src_dir} || "src";
+    my @files = glob("$src/*.{c,cpp,h,ino}");
+    my $baud;
+    foreach my $file (@files)
+    {
+      open(F, "<$file") || die "Can't read $file: $!";
+      while (<F>)
+      {
+        if (/Serial\.begin\(\s*(\d+)\s*\)/)
+        {
+          $baud = $1;
+          last;
+        }
+      }
+      close(F);
+      last if $baud;
+    }
+    push(@pio, "-b", $baud) if $baud;
+  }
 }
 
 my @run = ($pini ? @pio : @particle, @ARGV);
