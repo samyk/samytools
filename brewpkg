@@ -1,0 +1,12 @@
+#!/usr/bin/perl
+
+use strict;
+die "usage: $0 <file to search brew packages for [...]>\n" unless @ARGV;
+for my $search (@ARGV)
+{
+  for my $pkg (`brew list`)
+  {
+    chomp($pkg);
+    map { print "$pkg: $_" } grep { /$search/ } `brew ls $pkg`
+  }
+}
