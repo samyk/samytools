@@ -3,7 +3,7 @@
 use strict;
 
 my $time = 1;
-if ($ARGV[0] =~ /^\d+(?:\.\d+)?$/)
+if ($ARGV[0] =~ /^\d+(?:\.\d+)?|\.\d+$/)
 {
 	$time = shift;
 }
