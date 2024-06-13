@@ -44,7 +44,14 @@ sub fn { (caller(1))[3] }
 sub ret { !wantarray && @_ == 1 ? $_[0] : @_ }
 
 # get filename from url
-sub file_from_url { return shift =~ m~([^/]+)$~ ? $1 : "index" }
+sub file_from_url
+{
+  my ($url, $dir) = @_;
+  $dir =~ s~([^/])/?$~$1/~;
+  return $dir . ($url =~ m~([^/]+)$~ ? $1 : "index");
+}
+sub filename { &file_from_url }
+sub basename { &file_from_url }
 
 # remove question marks such as from filenames
 sub rm_ques
@@ -120,29 +127,33 @@ sub isfloat { return $_[0] =~ /^-?(\d+\.?\d*|\.\d+)$/ }
 # paste from clipboard
 sub paste
 {
-  my @cmd = mac() ? env_path("pbpaste") : (env_path("xclip"), "-sel");
-  return run(@cmd);
+  runenv(mac() ? "pbpaste" : "xclip -sel")
+}
+
+# output data to stdout
+sub output
+{
+  my $cmd = shift;
+  open(my $fh, "|-", $cmd) || return 0;
+  print $fh @_;
+  close($fh);
 }
 
 # copy into clipboard
 sub copy
 {
-  my $data = shift;
-  my $cmd = env_path(mac() ? "pbcopy" : "xclip");
-  open(my $fh, "|-", $cmd);
-  print $fh $data;
-  close($fh);
+  output(mac() ? "pbcopy" : "xclip", @_)
 }
 
 # udp socket
 sub udp
 {
-  return _sock('udp', @_)
+  _sock('udp', @_)
 }
 
 sub tcp
 {
-  return _sock('tcp', @_)
+  _sock('tcp', @_)
 }
 
 sub _sock
@@ -163,7 +174,8 @@ sub arp
   my %arp = map
   {
     my @s = split /[\s()]+/;
-    $s[3] eq 'incomplete' ? () :
+    $s[3] eq 'incomplete' ?
+      () :
       $s[1] => cleanmac($s[3])
   } runenv('arp -na');
   return @_ ? @arp{@_} : %arp;
@@ -181,7 +193,7 @@ sub beep
 # host/ip to mac address
 sub host2mac
 {
-  return arp(host2ip($_[0]));
+  arp(host2ip($_[0]))
 }
 
 # host to ip address
@@ -190,6 +202,7 @@ sub host2ip
   use Socket;
 
   my $host = shift;
+  # XXX make general ip detection function and support other formats
   return $host if $host =~ /^\d+\.\d+\.\d+\.\d+$/;
 
 	my $inet = inet_aton($host);
@@ -229,17 +242,36 @@ sub mapw (&@)
   my $fn = shift;
 
   # if we don't want an array (we want scalar) and there's only one value, return it (otherwise return the full list which gets treated as numeric)
-  !wantarray && @_ == 1 ? &$fn($_ = $_[0]) : map &$fn($_), @_
+  !wantarray && @_ == 1 ? &$fn(local $_ = $_[0]) : map &$fn($_), @_
 }
 
 # chomp strings inline and return
-sub chomps
+sub chomps(_)
 {
   mapw {
     substr($_, length() - 1, 1) eq $/
       ? substr($_, 0, length() - 1)
       : $_
-  } @_
+  } @_;
+}
+
+# pie({ code }, files)
+# like doing: perl -i -pe 'code' files
+sub pie(&@)
+{
+  my $fn = shift;
+  foreach my $file (@_)
+  {
+    open(my $fh, "+<", $file) || die "Can't open $file: $!\n";
+    while (<$fh>)
+    {
+      $fn->();
+
+      print "KK $_\n" if m|/ID |;
+      print $fh $_;
+    }
+    close($fh);
+  }
 }
 
 # multiw(wantarray, list)
@@ -248,16 +280,35 @@ sub multiw
   !wantarray && @_ == 1 ? $_[0] : @_
 }
 
+# validate formats
+sub validate
+{
+  my ($type, $val) = @_;
+  if ($type eq 'url')
+  {
+    return $val =~ m~^https?://~;
+  }
+}
+
 # generates+validates usage and parses command line options
 # %opts = optusage('[-r <regex>]', '[-n(o repeat)]', '[-s(leep) <secs (default 0.1)>]', '<file ...>')
 sub optusage
 {
   use Getopt::Long qw(GetOptionsFromArray);
-  my (%opts, %defaults, @opts, $usage, $req, $reqmore);
+  my (%opts, %defaults, @opts, $usage, $opt, $req, $optmore);
 
   # go through command line opts
   for (@_)
   {
+    ($_, my %mod) = ($_->[0], %{$_->[1]}) if ref($_) eq "ARRAY";
+    #if (ref($_) eq "ARRAY")
+    #{
+    #  %mod = %{$_->[1]};
+    #  $_ = $_->[0];
+    #}
+    #my %mod = ref($_) eq "HASH" ? %{$_} : ref($_) eq "ARRAY" ? %{$_->[1]} : ();
+    #$_ = $_->[0] if ref($_) eq "ARRAY";
+
     # `-x` or `-n(ame)` or `-x (name)`
     if (my ($char, $space, $name, $value) = /^\[ -(.) (\s*) (?:\( (.*?) \)?)? \s* (?:<(.*?)>)? \]$/x)
     {
@@ -281,7 +332,14 @@ sub optusage
     elsif (my ($reqname, $more) = /^<(.*?)\s*(\[?\.\.\.?\]?)?>$/)
     {
       $req++;
-      $reqmore++ if $more;
+      $optmore++ if $more;
+    }
+
+    # [optional]
+    elsif (my ($optname, $more) = /^\[(.*?)\s*(\[?\.\.\.?\]?)?\]$/)
+    {
+      $opt++;
+      $optmore++ if $more;
     }
 
     # unknown or not supported yet
@@ -293,25 +351,34 @@ sub optusage
     $usage .= "$_ ";
   }
 
+  # save for future use
+  $_y{optusage}{usage} = $usage;
+
   #GetOptionsFromArray(\@ARGV, \%opts, @opts);
   GetOptions(\%opts, @opts) &&
       (
-        (@ARGV == $req) ||
-        (@ARGV >= $req && $reqmore)
+        (@ARGV >= $req && @ARGV <= $req + $opt) ||
+        (@ARGV >= $req && $optmore)
       )
-      or die "usage: $0 $usage\n";
+      or usage();
 
   $opts{args} = [@ARGV] if @ARGV;
-  for (keys %defaults)
-  {
-    $opts{$_} = $defaults{$_} if !defined $opts{$_};
-  }
+  $opts{$_} //= $defaults{$_} for keys %defaults;
+
+  #for (keys %defaults)
+  #{
+  #  $opts{$_} = $defaults{$_} if !defined $opts{$_};
+  #}
   return %opts;
 }
 
+sub usage
+{
+  die "usage: $0 $_y{optusage}{usage}\n";
+}
 
 # return file type
-sub file
+sub file(_)
 {
   my $file = shift;
   my $FILE_PATH = "file";
@@ -327,11 +394,11 @@ sub file
 
 # safe run and return stdout but find path in env
 # in list context, returns list of lines, in scalar context returns single value
-sub vrunenv
+sub runenvv
 {
   my $cmd = shift;
   $cmd =~ s~^([^.\s/]+)(\s|$)~env_path($1) . $2~e;
-  return vrun($cmd, @_);
+  return runv($cmd, @_);
 }
 
 # safe run and return stdout but find path in env
@@ -359,7 +426,7 @@ sub runv
 # in list context, returns list of lines, in scalar context returns single value
 sub run
 {
-  _run(0, @_)
+  _run(0, @_);
 }
 
 sub _run
@@ -535,20 +602,18 @@ sub getfile
 	my $file = shift;
 
   # if we passed a dir, grab filename from url
-  if (-d $file)
+  if (-d $file || !defined($file))
   {
-    my $dir = $file;
-    $url =~ m~/([^/]+)$~;
-    $file = "$dir/$1";
+    $file = file_from_url($url, $file);
+    #my $dir = $file;
+    #$url =~ m~/([^/]+)$~;
+    #$file = "$dir/$1";
   }
   # no file passed, grab from url
-	elsif (!$file && $url =~ m~/([^/]+)$~)
-	{
-		$file = $1;
-	}
+  #elsif (!$file && $url =~ m~/([^/]+)$~) { $file = $1; }
 
-  print "out($file, get($url))\n";
-  return `wget -q -O $file -4 -c -e robots=off --no-check-certificate --user-agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.42 Safari/537.36" --header="Accept: text/xml,application/xml,application/xhtml+xml,text/html;q=0.9,text/plain;q=0.8,image/png,*/*;q=0.5" --header="Accept-Language: en-us,en;q=0.5" --header="Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.7" --header="Keep-Alive: 300" $url`;
+  #print "out($file, get($url))\n";
+  $@ = `wget -q -O $file -4 -c -e robots=off --no-check-certificate --user-agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.42 Safari/537.36" --header="Accept: text/xml,application/xml,application/xhtml+xml,text/html;q=0.9,text/plain;q=0.8,image/png,*/*;q=0.5" --header="Accept-Language: en-us,en;q=0.5" --header="Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.7" --header="Keep-Alive: 300" $url`;
   #out($file, get($url));
   ##out($file, LWP::Simple::get($url));
 	return $file;
@@ -686,18 +751,29 @@ sub bdb
 	return \%h;
 }
 
+# print a message and return user input
+# prompt("enter name: ")
+sub prompt
+{
+  my $msg = shift;
+  print $msg;
+  chomp(my $stdin = <STDIN>);
+  return $stdin;
+}
+
 # out(outfile, data to write)
 sub out
 {
-	my $data = cat($_[0], 1);
+  my $file = shift;
+	my $data = cat($file, 1);
 
   my $fh;
-	if (!open($fh, ">$_[0]"))
+	if (!open($fh, ">$file"))
 	{
-		print STDERR "Can't write to $_[0]: $!";
+		print STDERR "Can't write to $file: $!";
 		return;
 	}
-	print $fh $_[1];
+	print $fh @_;
 	close($fh);
 
 	return $data;
@@ -1096,7 +1172,10 @@ sub env_path
   }
   my $cmd = $cmd[0];
 
-  return $ENV{"${cmd}_PATH"} || $ENV{lc($cmd) . "_PATH"} || $ENV{uc($cmd) . "_PATH"} || $nodefault ? undef : $cmd;
+  #  print << "EOF";
+  #$ENV{"${cmd}_PATH"} || $ENV{lc($cmd) . "_PATH"} || $ENV{uc($cmd) . "_PATH"} || $nodefault ? undef : $cmd;
+  #EOF
+  return $ENV{"${cmd}_PATH"} || $ENV{lc($cmd) . "_PATH"} || $ENV{uc($cmd) . "_PATH"} || ($nodefault ? undef : $cmd);
 }
 
 # is stdin piped in?
