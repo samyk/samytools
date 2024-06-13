@@ -1,18 +1,44 @@
 #!/usr/bin/perl
 #
-# convert mks901p analog output to torr
+# convert mks901p + bgp400 analog output to torr
 # -samy kamkar, 2020/01/11
 
 use strict;
-die "usage: $0 [-r (reverse)] <analog voltage>\n" unless @ARGV;
-my $BASE = "torr";
 
-foreach my $v (@ARGV)
+# did we call mks directly?
+my $mkscalled = $0 =~ /mks$/i;
+
+$mkscalled ?
+  die "usage: $0 [-r (reverse)] <mks voltage> [bpg voltage]\n" :
+  die "usage: $0 [-r (reverse)] <bpg voltage> [mks voltage]\n"
+  unless @ARGV;
+my $BASE = "torr";
+my %p = ("torr" => -0.125, "Pa" => 2, "mbar" => 0);
+
+my $rev = $ARGV[0] eq "-r" ? shift : 0;
+my ($mks, $bpg) = ($mkscalled ? @ARGV[0,1] : @ARGV[1,0]);
+
+$mks = 1 if defined $mks && $mks < 1;
+my $mtorr = 10 ** ($mks - 6);
+# round
+#$mtorr = sprintf("%.1f", $mtorr);
+#my $me = sprintf("%e", $mtorr);
+#$me =~ s/(?<!\.)0+e/e/g;
+#$me =~ s/0+(\d+)$/$1/;
+#printf("mks: $mtorr $BASE ($me $BASE)%s\n", ($mks <= 1 ? " BOTTOMED OUT!" : ""));
+printf("mks: %s%.1e $BASE %s\n", ($mks <= 1 ? "(BOTTOMED OUT!) <=" : ""), $mtorr) if $mks;
+
+# bpg400
+if ($bpg)
 {
-  my $torr = 10 ** ($v - 6);
-  print "$v: " if @ARGV > 1;
-  my $e = sprintf("%e", $torr);
-  $e =~ s/(?<!\.)0+e/e/g;
-  $e =~ s/0+(\d+)$/$1/;
-  printf("$torr $BASE ($e $BASE)\n", $torr);
+  my $btorr = 10 ** (($bpg - 7.75) / 0.75 + $p{$BASE});
+  #$btorr = sprintf("%.1f", $btorr);
+  #print "$v: " if @ARGV > 1;
+  #my $be = sprintf("%e", $btorr);
+  #$be =~ s/(?<!\.)0+e/e/g;
+  #$be =~ s/0+(\d+)$/$1/;
+  #printf("bpg: %.01e $BASE (%.01e $BASE)\n", $btorr, $be);
+  printf("bpg: %.01e $BASE\n", $btorr);
+  my $diff = (($btorr - $mtorr) / $mtorr) * 100;
+  #printf "diff " . (abs($diff) < 10 ? "%.2f" : "%.0f") . "%%\n", $diff;
 }
