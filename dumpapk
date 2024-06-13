@@ -17,14 +17,15 @@ my $EGREP = env_path("egrep");
 
 $ENV{_JADX_PATH} = $JADX;
 
-die "usage: $0 <apk>\n" unless @ARGV;
+die "usage: $0 <apk>\n" unless @ARGV == 1;
+
 my $apk = shift;
-my $apkdir = "apk";
 my $jardir = "jar";
 
 my $jr = << 'EOF';
-find . | perl -lne '$x||=`pwd`;chomp$x; if(-d $_){chdir($_); system $ENV{_JADX_PATH}, <*.class>; chdir($x); }'
+find . | perl -lne '$x||=`pwd`;chomp$x; if(-d $_){chdir($_); system "$ENV{_JADX_PATH}", <*.class>; chdir($x); }'
 EOF
+$jr =~ s/\$ENV\{(.*?)\}/$ENV{$1}/g;
 
 my $cl = << 'EOF';
 perl -ni -e 'print unless /^\/\/\s*(Decompiled by Jad|Jad home)/' `find . | egrep jad$`
@@ -35,18 +36,29 @@ my $jad2jar = << 'EOF';
 find . | perl -lne'$o=$_;if(s/\.jad$/.java/){print"$o -> $_";rename($o,$_)}'
 EOF
 
-#mkdir($apkdir);
-#chdir($apkdir);
-run($UNZIP, $apk);
+runv($UNZIP, $apk);
+my @jars;
 foreach (<*.dex>)
 {
-  run($D2J, "-f", $_);
+  runv($D2J, "-f", $_);
+  s/\.dex$/-dex2jar.jar/;
+  push @jars, $_;
 }
-mkdir($jardir);
-cd($jardir);
-run($UNZIP, "../classes-dex2jar.jar");
-run($jr);
-run($cl);
-run($jad2jar);
-cd("..");
+
+for my $jar (@jars)
+{
+  ($jardir = $jar) =~ s/\.jar//;
+  mkdir($jardir);
+  cd($jardir);
+  runv($UNZIP, "../$jar");
+  runv($jr);
+
+  # if .jad files
+  if (grep { /jad$/ } `find .`)
+  {
+    runv($cl);
+    runv($jad2jar);
+  }
+  cd("..");
+}
 cd("..");
