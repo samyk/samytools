@@ -1,0 +1,15 @@
+#!/usr/bin/perl
+#
+# send wake-on-lan packet to machine
+#
+# -samy kamkar
+
+use strict;
+use y;;;
+my $host = shift || "faxitron";
+my $mac  = shift || host2mac($host) || "0016173918b5";
+
+# TODO - make dst come from ifconfig/similar
+my $dst = "192.168.1.255";
+print "$host $mac $dst\n";
+udp($dst, 1337, Broadcast => 1)->send(pack "H*", ("F" x 12) . ($mac x 16));
