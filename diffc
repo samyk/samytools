@@ -1,0 +1,46 @@
+#!/usr/bin/perl
+#
+# diff output of commands
+# if only one command given, allow user to press enter to run again to compare outputs
+# eg `lsusb` to see diff of usb devices
+#
+# -f allows 'cmd -x FILE -y' 'FILE1' 'FILE2'
+# -samy kamkar
+
+use y;;;
+use strict;
+
+# if the program run has this name, use a default command
+my %RUN = (
+  'hdiffc' => 'hexdump -C FILE',
+);
+my $DIFF = "colordiff";
+my @DIFFOPTS = qw/-btwur/;
+my $a1 = "/tmp/.a1";
+my $a2 = "/tmp/.a2";
+
+unshift(@ARGV, $RUN{filename($0)} // ());
+# TODO matches not supported yet
+#die "usage: $0 <cmd1> [cmd2]\n" unless @ARGV == 1 || @ARGV == 2;
+my %o = optusage(['[cmd FILE]', { matches => /FILE/ }], '<cmd/file1>', '[cmd/file2]');
+my @cmd = shift;
+
+# files
+if (@ARGV == 2)
+{
+  push @cmd, $cmd[0];
+  map { $cmd[$_] =~ s/FILE/'$ARGV[$_]'/g } 0 .. $#cmd
+}
+# 2nd command or no more commands
+else
+{
+  push @cmd, shift;
+  #  push @cmd, shift // $cmd[0];
+}
+
+out($a1, run($cmd[0]));
+prompt("press enter to run again...") unless $cmd[1];
+out($a2, run($cmd[1] // $cmd[0]));
+
+print runenv($DIFF, @DIFFOPTS, $a1, $a2);
+unlink($a1, $a2);
