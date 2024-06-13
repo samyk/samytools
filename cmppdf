@@ -1,0 +1,53 @@
+#!/usr/bin/perl
+
+# compare pdfs to find ones that are likely the same even if not identical
+# -samy kamkar
+#
+# todo - bucketize by number of pages
+#
+
+use strict;
+use y;;;
+
+my %o = optusage('[-t(hreshold) <% (default 99)>]', '<dir ...>');
+my @DIRS = @{$o{args}};
+my @files = grep { file() =~ /^PDF/ } ls(@DIRS, 1); # recursively get files
+my $DIFFPDF = "diff-pdf";
+my %d;
+
+# s4args -t 99 /Users/samy/Dropbox/Mac/Documents/Home/542nvistast90036/ladbs/
+
+# go through pdf files
+for my $f1 (@files)
+{
+  for my $f2 (@files)
+  {
+    #print "$f1\n$f2\n\n";
+    next if $d{px}{$f1}{$f2} || $d{px}{$f2}{$f1} || $f1 eq $f2;
+
+    diffpdf($f1, $f2);
+  }
+}
+
+my %px;
+sub diffpdf
+{
+  my ($f1, $f2) = @_;
+  my $out = runenv($DIFFPDF, "-v", $f1, $f2);
+  #print "$f1 -> $f2:\n$out\n\n";
+  $d{px}{$f1}{$f2} += $1 while $out =~ /(\d+) pixels? that differ/gs;
+  #$d{pg}{$f1} = $1 if $out =~ /of (\d+) pages?/;
+  if ($out =~ /pages count differs: (\d+) vs (\d+)/)
+  {
+    @{$d{pg}}{$f1, $f2} = ($1, $2) if $out =~ /pages count differs: (\d+) vs (\d+)/;
+  }
+  else
+  {
+    @{$d{pg}}{$f1, $f2} = ($1, $1) if $out =~ /of (\d+) pages?/;
+  }
+
+  print filename($f1) . " -> " . filename($f2) . "\n";
+  print "$_\n" for grep { /pixels that differ/ && !/ 0 pixels/ } split("\n", $out);
+  print "\n";
+}
+__DATA__
