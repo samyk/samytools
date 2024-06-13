@@ -43,8 +43,8 @@ elsif ($npm)
   system(qw/npm start/);
 }
 
-# pl file
-elsif ($pl || $ext eq "pl")
+# pl/pm file
+elsif ($pl || $ext eq "pl" || $ext eq "pm")
 {
   my @args = s4args($name);
   system("perl", $name, @args);
@@ -61,7 +61,6 @@ elsif ($ext eq "js")
 elsif ($py || $ext eq "py")
 {
   my $env = first cat($name);
-  die $env;
   my @args = s4args($name);
   system($env =~ /^#!env\s+(\S+)/ ? $1 : "python", $name);
 }
