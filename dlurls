@@ -8,6 +8,7 @@
 #
 # -samy kamkar
 
+use strict;
 use y;;;
 
 # max number, 0 means infinite
@@ -80,5 +81,3 @@ sub beep
   print "\a";
   $| = $old;
 }
-
-use strict;
