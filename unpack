@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 #
-# recursively unpacks all file
+# unpacks all file supporting recursive unpacking
 # -samy kamkar 2020/11/01
 #
 # TODO:
@@ -10,21 +10,31 @@
 use strict;
 use Cwd;
 
-die "usage: $0 [-v | -R] <files / paths ...>\n" unless @ARGV;
+die "usage: $0 [-v | -r] <files / paths ...>\n" unless @ARGV;
 my $verbose = $ARGV[0] eq "-v" ? shift : 0;
-my $norecurse = $ARGV[0] eq "-R" ? shift : 0;
+my $recurse = $ARGV[0] eq "-r" ? shift : 0;
 
 my %formats = (
-  "asar"  => "asar extract FILE .",
-  "bzip2" => "bzip2 -vd FILE",
-  "tar"   => "tar -xvf FILE",
-  "cpio"  => "cpio -idv -F FILE",
-  "xar"   => "xar -xv -f FILE",
-  "gzip"  => "zcat -v FILE > FILE.unp",
-  "7-zip" => "7z x FILE",
-  "lzma"  => "7z x FILE",
-  "xz"    => "xz -vd FILE",
-  "^zip"  => "unzip FILE",
+  "asar"    => "asar extract FILE .",
+  "bzip2"   => "bzip2 -vd FILE",
+  "tar"     => "tar -xvf FILE",
+  "cpio"    => "cpio -idv -F FILE",
+  "xar"     => "xar -xv -f FILE",
+  "gzip"    => "zcat -v FILE > FILE.unp",
+  "7-zip"   => "7z x FILE",
+  "lzma"    => "7z x FILE",
+  "xz"      => "xz -vd FILE",
+  "^zip"    => "unzip FILE",
+  "dtb"     => "dtc -I dtb -O dts FILE -o FILE.dts", # ports/brew dtc
+  "ramdisk" => "dumpimage -T ramdisk -o FILE.unp FILE", # brew uboot-tools (ports is broken)
+
+  # linux version of dumpimage
+  #"ramdisk" => "dumpimage -i FILE -T ramdisk FILE.unp",
+
+  # untested
+  "elf"     => "echo install binutils && echo readelf -a FILE",
+  "exe"     => "objdump -x FILE",
+  "macho"   => "macho_dump FILE",
 );
 
 # extensions to formats
@@ -63,7 +73,7 @@ sub find
     # skip pre-existing files
     debug("searching $file");
     my $shfile = shquote($file);
-    -d $file ? !$norecurse && find(<$shfile/*>) : explode($file);
+    -d $file ? ($recurse && find(<$shfile/*>)) : explode($file);
   }
 }
 
@@ -71,8 +81,6 @@ sub explode
 {
   foreach my $file (@_)
   {
-    print STDERR "FILE: $file\n";
-
     # skip files if we've already unpacked them
     next if $skip{$file}++;
 
@@ -80,6 +88,7 @@ sub explode
 
     chomp(my $type = `file $shfile`);
     (undef, $type) = split(/:\s+/, $type, 2);
+    print STDERR "< $file: $type\n";
 
     my $unpack = type($type, $file);
     debug("searching $file ($type)");
@@ -91,7 +100,7 @@ sub explode
       system($unpack);
 
       # rescan unpacked files
-      find(<*>);
+      find(<*>) if $recurse;
     }
   }
 }
@@ -117,3 +126,6 @@ sub shquote
   (my $shfile = $_[0]) =~ s/'/'\\''/g;
   return "'$shfile'";
 }
+
+__DATA__
+ramdisk => u-boot legacy uImage, , Linux/ARM 64-bit, RAMDisk Image (gzip), 1157194 bytes, Wed Nov 29 07:49:03 2023, Load Address: 0x00000000, Entry Point: 0x00000000, Header CRC: 0x4CB0B58F, Data CRC: 0x30EB577E
