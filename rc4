@@ -3,6 +3,7 @@
 # implementation of the RC4 algorithm 
 #
 # -samy kamkar, code@samy.pl
+# sub _{@@[$@,$%]=@@[($%+=$@[$@])%=@@,$@];$@[$@++]+$@[$%]-@@}@.=pop=~/../g;_$%+=hex$.[$@%@.]for@@=0..255;$%=$@++;$/=\1;print$_^chr$@[_$@%=@@]for<>
 
 use strict;
 
