@@ -25,7 +25,7 @@ my %formats = (
   "7-zip"   => "7z x FILE",
   "lzma"    => "7z x FILE",
   "xz"      => "xz -vd FILE",
-  "dtb"     => "dtc -I dtb -O dts FILE -o FILE.dts", # ports/brew dtc
+  "dtb"     => \&dtb, # ports/brew dtc # "dtc -I dtb -O dts FILE -o FILE.dts", # ports/brew dtc
   "ramdisk" => "dumpimage -T ramdisk -o FILE.unp FILE", # brew uboot-tools (ports is broken)
   "zip"     => "unzip FILE",
   "Z"       => "uncompress -c FILE > FILE.unp",
@@ -102,6 +102,64 @@ sub find
   }
 }
 
+sub dtb
+{
+  my $file = shift;
+  my $shfile = shquote($file);
+  unp_run("dtc -I dtb -O dts FILE -o FILE.dts", $shfile);
+
+  my %dt;
+  my $ref = \%dt;
+  open(F, "<$file.dts") || die "can't read $file.dts: $!";
+  while (<F>)
+  {
+    if (/^\s*([^\s\{]+)\s*\{/)
+    {
+      $ref->{$1}{_parent} = $ref;
+      $ref = $ref->{$1};
+    }
+    elsif (/^\s*([^\s]+)\s*=\s*(.+);/)
+    {
+      my ($k, $v) = ($1, $2);
+      $v =~ s/^"(.*)"$/$1/ || $v =~ s/^<0x(\w+)>$/hex($1)/e;
+      $ref->{$k} = $v;
+    }
+    elsif (/^\s*([\w-,]+)\s*;/)
+    {
+      $ref->{$1} = "";
+    }
+    elsif (/^\s*\};/)
+    {
+      $ref = $ref->{_parent};
+    }
+    elsif (m~^\s*$|^/(dts-v1|memreserve)/~) { }
+    else { print "dtb unknown: $_" }
+    # ?
+    #if (/^\s*data = <(.+)>;/)
+    #{
+    #  my $data = $1;
+    #  $data =~ s/\s+//g;
+    #  $data =~ s/([0-9a-f]{2})/0x$1,/g;
+    #  $data =~ s/,$//;
+    #  print "echo -n '$data' | xxd -r -p > $file\n";
+    #  last;
+    #}
+  }
+
+  foreach my $key (keys %{$dt{'/'}{images}})
+  {
+    my $r = $dt{'/'}{images}{$key};
+    next unless ref($r) eq "HASH";
+    if ($r->{"data-size"} && $r->{"data-position"})
+    {
+      my $cmd = "dd if=$file of=$file.$key.img bs=1 skip=$r->{'data-position'} count=$r->{'data-size'}";
+      unp_run($cmd);
+    }
+  }
+  use Data::Dumper;
+  #  print Dumper(\%dt);
+}
+
 sub explode
 {
   foreach my $file (@_)
@@ -117,17 +175,39 @@ sub explode
 
     my $unpack = type($type, $file);
     debug("searching $file ($type)");
-    if ($unpack)
+
+    # code
+    if (ref($unpack))
     {
-      # quote the file in case it has spaces/quotes
-      $unpack =~ s/FILE/$shfile/g;
-      print "> $unpack\n";
-      system($unpack);
+      $unpack->($file);
+
+      # rescan unpacked files
+      find(<*>) if $recurse;
+    }
+
+    # command
+    elsif ($unpack)
+    {
+      unp_run($unpack, $shfile);
+      ## quote the file in case it has spaces/quotes
+      #$unpack =~ s/FILE/$shfile/g;
+      #print "> $unpack\n";
+      #system($unpack);
 
       # rescan unpacked files
       find(<*>) if $recurse;
     }
   }
+}
+
+sub unp_run
+{
+  my ($unpack, $shfile) = @_;
+
+  # quote the file in case it has spaces/quotes
+  $unpack =~ s/FILE/$shfile/g;
+  print "> $unpack\n";
+  system($unpack);
 }
 
 sub type
