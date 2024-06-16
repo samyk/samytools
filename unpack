@@ -15,6 +15,7 @@ my $verbose = $ARGV[0] eq "-v" ? shift : 0;
 my $recurse = $ARGV[0] eq "-r" ? shift : 0;
 
 my %formats = (
+  "ar"      => "ar -x FILE",
   "asar"    => "asar extract FILE .",
   "bzip2"   => "bzip2 -vd FILE",
   "tar"     => "tar -xvf FILE",
@@ -24,9 +25,11 @@ my %formats = (
   "7-zip"   => "7z x FILE",
   "lzma"    => "7z x FILE",
   "xz"      => "xz -vd FILE",
-  "^zip"    => "unzip FILE",
   "dtb"     => "dtc -I dtb -O dts FILE -o FILE.dts", # ports/brew dtc
   "ramdisk" => "dumpimage -T ramdisk -o FILE.unp FILE", # brew uboot-tools (ports is broken)
+  "zip"     => "unzip FILE",
+  "Z"       => "uncompress -c FILE > FILE.unp",
+  "zstd"    => "zstd -d FILE",
 
   # linux version of dumpimage
   #"ramdisk" => "dumpimage -i FILE -T ramdisk FILE.unp",
@@ -37,15 +40,37 @@ my %formats = (
   "macho"   => "macho_dump FILE",
 );
 
+my %types = (
+  "^Device Tree Blob"          => "dtb",
+
+  "^ASCII cpio archive"        => "cpio",
+  "^POSIX tar archive"         => "tar",
+  "^current ar archive"        => "ar",
+
+  "^Zip archive data"          => "zip",
+  "^RAR archive data"          => "rar",
+  "^7-zip archive data"        => "7-zip",
+
+  "^compress'd data"           => "Z",
+  "^Zstandard compressed data" => "zstd",
+
+  "^bzip2 compressed data"     => "bzip2",
+  "^gzip compressed data"      => "gzip",
+  "^LZMA compressed data"      => "lzma",
+  "^XZ compressed data"        => "xz",
+);
+
 # extensions to formats
 # formats are already considered extensions, eg .asar is already considered asar but can be overridden here
 my %exts = (
+  "a"    => "ar",
   "7z"   => "7-zip",
   "gz"   => "gzip",
   "tgz"  => "gzip",
   "bz2"  => "bzip2",
   "pkg"  => "xar",
   "pax"  => "cpio",
+  "zst"  => "zstd",
 );
 
 # this helps us ensure we're only looking at longer formats first - for example, match "7-zip" before "zip"
@@ -108,11 +133,23 @@ sub explode
 sub type
 {
   my ($type, $file) = @_;
+
+  # check `file` type in %types
+  foreach my $format (keys %types)
+  {
+    return $formats{$types{$format}} if $type =~ /$format/i;
+  }
+
+  # then check the file extension
+  return $formats{$exts{$1} || $1} if $file =~ /\.([^.]+)$/ && $formats{$exts{$1} || $1};
+
+  # need to see if these will work
   foreach my $format (keys %formats)
   {
-    return $formats{$format} if $type =~ /$format/i
+    return $formats{$format} if $type =~ /$format/i;
   }
-  return $formats{$exts{$1} || $1} if $file =~ /\.([^.]+)$/;
+
+  die "unknown type: $type\n";
 }
 
 sub debug
