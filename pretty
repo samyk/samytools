@@ -1,0 +1,16 @@
+#!/usr/bin/perl
+#
+# prettify files
+
+use strict;
+use y;;;
+
+die "usage: $0 <file ...>\n" unless @ARGV;
+
+for my $file (@ARGV)
+{
+	my ($n, $e, $d) = file_to_parts($file);
+	my $p = "$d$n.pretty$e";
+	runvout("js-beautify $file", $p);
+	print "> $p\n";
+}
