@@ -33,6 +33,56 @@ sub template
 }
 =cut
 
+#BEGIN
+#{
+#  no strict 'refs';
+#  my @types = qw/h b/;
+#  @types = (@types, uc(@types));
+#  for my $t1 (@types)
+#  {
+#    $t1 = lc($t1) eq $t1 ? uc($t1) : lc($t1);
+#
+#    *{$t1 . "2a"} = sub {   pack "$t1*", @_ };
+#    *{"a2" . $t1} = sub { unpack "$t1*", @_ };
+#    for my $t2 (@types)
+#    {
+#      $t2 = lc($t2) eq $t2 ? uc($t2) : lc($t2);
+#
+#      next if $t1 eq $t2;
+#
+#      *{$t1 . "2" . $t2} = sub { unpack "$t2*", pack "$t1*", @_ };
+#    }
+#  }
+#}
+sub a2h { unpack "H*", $_[0] }
+sub h2a {   pack "H*", $_[0] }
+sub a2b { unpack "B*", $_[0] }
+sub b2a {   pack "B*", $_[0] }
+
+# dump hex
+sub hexdump
+{
+  my @strs;
+  for my $j (0 .. $#_)
+  {
+    my $i = 0;
+    for (unpack("H*", $_[$j]) =~ /(..)/g)
+    {
+      $strs[$j] .= unpack("H8", pack "N", $i) . "  " if $i % 16 == 0;
+      $strs[$j] .= " " if $i % 2 == 0;
+      $strs[$j] .= "$_ ";
+      $strs[$j] .= "\n" if $i % 16 == 0;
+      $i += 2;
+    }
+    $strs[$j] .= "\n";
+  }
+  return @strs;
+}
+#000001a0  65 2e 63 6f 6d 0a 31 30  37 2e 32 30 2e 32 31 38  |e.com.107.20.218|
+#000001b0  2e 31 32 35 20 62 65 74  61 73 2e 74 6f 0a 31 39  |.125 betas.to.19|
+#000001c0  32 2e 31 36 38 2e 31 2e  31 31 31 20 66 61 78 69  |2.168.1.111 faxi|
+#000001d0  74 72 6f 6e 0a                                    |tron.|
+
 # is data piped to us
 sub piped { !-t }
 
@@ -422,6 +472,12 @@ sub runv
   _run(1, @_)
 }
 
+# chomps + run
+sub runs
+{
+  chomps(run(@_))
+}
+
 # safe run and return stdout
 # in list context, returns list of lines, in scalar context returns single value
 sub run
@@ -585,6 +641,14 @@ sub network
 
 
 	return %net;
+}
+
+# /some/file.txt -> ('file', '.txt', '/some/')
+sub file_to_parts
+{
+  my $file = shift;
+  my ($dir, $name, $ext) = $file =~ m~^(.*?)([^/]+)(\.[^/.]+)$~;
+  return ($name, $ext, $dir);
 }
 
 sub getfile
@@ -760,6 +824,9 @@ sub prompt
   chomp(my $stdin = <STDIN>);
   return $stdin;
 }
+
+sub runout  { out(pop, run (@_)) }
+sub runvout { out(pop, runv(@_)) }
 
 # out(outfile, data to write)
 sub out
