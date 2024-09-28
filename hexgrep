@@ -1,0 +1,55 @@
+#!/usr/bin/perl
+#
+# search (binary) files for hex strings and try various encodings of the hex strings
+# -samy kamkar
+# 2024/09/28
+
+use y;;;
+use strict;
+
+my %o = optusage('[-i (case insensitive)]', '<files ...>', '<hex ...>');
+
+my (@files, @hex);
+my ($i) = grep { !-e $ARGV[$_] } 0 .. $#ARGV;
+my @files = @ARGV[0..$i-1];
+my @hex = @ARGV[$i..$#ARGV];
+
+# convert regexp to hex (a hack)
+#$regexp =~ s/([A-F\d]{2})/\\x$1/ig if $o{hex};
+
+foreach my $file (@files)
+{
+  # go through each hex string
+  for my $hex (map { lc } @hex)
+  {
+    search($file, $hex);
+  }
+}
+
+sub search
+{
+  my ($file, $hex) = @_;
+  my $data = cat($file);
+  $data = lc $data if $o{caseinsensitive};
+
+  # word-reversed
+  for my $search ($hex, a2H(h2a($hex)))
+  {
+    # byte-reversed
+    for my $search ($search, a2h(scalar reverse(h2a($search))))
+    {
+      # endian-reversed
+      for my $search ($search, b2h(b2B(h2b($search))))
+      {
+        # nulls between bytes
+        for my $search ($search, a2h(join "\0", split //, h2a($search)))
+        {
+          my $ascii = h2a $search;
+          $ascii = lc $ascii if $o{caseinsensitive};
+          my $ind = index($data, $ascii);
+          print "$file:" . unpack("H8", pack("N", $ind)) . ": $search ($hex)\n" if $ind != -1;
+        }
+      }
+    }
+  }
+}
