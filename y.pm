@@ -54,10 +54,19 @@ sub template
 #    }
 #  }
 #}
+sub a2H { unpack "h*", $_[0] }
+sub H2a {   pack "h*", $_[0] }
+sub a2B { unpack "b*", $_[0] }
+sub B2a {   pack "b*", $_[0] }
+sub h2H { a2H h2a($_[0]) }
+sub b2B { a2B b2a($_[0]) }
+
 sub a2h { unpack "H*", $_[0] }
 sub h2a {   pack "H*", $_[0] }
 sub a2b { unpack "B*", $_[0] }
 sub b2a {   pack "B*", $_[0] }
+sub h2b { a2b h2a($_[0]) }
+sub b2h { a2h b2a($_[0]) }
 
 # dump hex
 sub hexdump
@@ -867,7 +876,10 @@ sub readconf
 
   foreach (cat(@_))
   {
+    # remove comments
     s/\s*#.*//;
+
+    # ignore whitespace
     next if /^\s*$/;
 
     # [something "hi"]
@@ -875,6 +887,7 @@ sub readconf
     {
       $key = ($2 ? $data{$1}{$2} : $data{$1}) = {};
     }
+    # x = y
     elsif (/^\s*(\S+)\s*=\s*(.*)$/)
     {
       $key->{$1} = $2;
