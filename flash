@@ -16,7 +16,7 @@ use strict;
 my $PKG = "package.json";
 
 my $compile = $ARGV[0] eq "-c" && shift;
-my $pio = map { -e $_ || -e "../$_" } "platformio.ini"; # true if we are working with pio
+my $pio = grep { -e $_ || -e "../$_" } "platformio.ini"; # true if we are working with pio
 my $npm = -e $PKG && json($PKG)->{scripts}{start};
 my $SBUILD = "samybuild";
 my $sbuild = -e $SBUILD;
@@ -35,6 +35,13 @@ my $CC = "gcc";
 if ($sbuild)
 {
   system($compile ? ("perl", $SBUILD, "-r") : ("perl", $SBUILD));
+}
+
+# platformio
+elsif ($pio)
+{
+  my @opts = -e "../platformio.ini" ? ("-d", "..") : ();
+  system($compile ? ($PLATFORMIO, qw/run -v/, @opts) : ($PLATFORMIO, qw/run -v --target upload/, @opts));
 }
 
 # npm start
@@ -72,13 +79,6 @@ elsif ($ext eq "c" || $ext eq "cpp")
 
   # particle/arduino code
   $code =~ /void\s+setup\s*\(/ ? particle() : c();
-}
-
-# platformio
-elsif ($pio)
-{
-  my @opts = -e "../platformio.ini" ? ("-d", "..") : ();
-  system($compile ? ($PLATFORMIO, qw/run -v/, @opts) : ($PLATFORMIO, qw/run -v --target upload/, @opts));
 }
 
 # assuming particle
