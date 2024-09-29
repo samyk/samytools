@@ -16,7 +16,7 @@ sub find
   my ($cmd, $args) = @_;
   my %found;
 
-  my @paths = split /:/, $ENV{PATH};
+  my @paths = split m~/?:~, $ENV{PATH};
   foreach my $path (@paths)
   {
     my $fp = "$path/$cmd";
