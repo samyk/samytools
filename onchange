@@ -6,6 +6,7 @@
 # eg: onchange [-s(ize)] project/ rsync -av project/ remote.com:proj
 
 use strict;
+use y;;;
 my ($secs, $size, $files, $commands) = usage();
 
 my $stat = $size ? 7 : 9; # size vs mtime
@@ -50,27 +51,58 @@ sub usage
 		$secs = shift(@ARGV);
 	}
 
-	my @files;
+	my (@files, @commands, $i);
 	# find our files to monitor, though if we pass a ./executable then consider that the first command to run
-	push(@files, find(shift(@ARGV))) while -e $ARGV[0] && !($ARGV[0] =~ m~^\./~ && -x $ARGV[0]);
-
-	# allow -- to split between files vs exec manually
-	shift(@ARGV) if $ARGV[0] eq "--";
-	my @command = @ARGV;
-
-	# if there's no command and our first file is executable, then run that
-	if (!@command && -x $files[0])
+	while (@ARGV)
 	{
-		@command = $files[0] =~ m~^[./]~ ? $files[0] : "./$files[0]";
+		my $arg = shift(@ARGV);
+
+		# file (file is the cmd)
+		# file args (file is the cmd)
+		# file cmd
+		# file cmd args
+		# file -- cmd args
+		if ($arg eq "--")
+		{
+			last;
+		}
+		# if file exists
+		elsif (-e $arg || -e which($arg))
+		{
+			# if there's no more args and this is executable, then consider it the command
+			if ((-x $arg || -x which($arg)) && !-e $ARGV[0] && !-e which($ARGV[0]))
+			{
+				@commands = $arg =~ m~^[./]~ ? $arg : "./$arg";
+				last;
+			}
+			else
+			{
+				push(@files, find($arg));
+			}
+		}
+		else
+		{
+			# add to our command
+			@commands = $arg;
+			last;
+		}
 	}
 
-	if (!@files || !@command)
+	#push(@files, find(shift(@ARGV))) while -e $ARGV[0] && !($ARGV[0] =~ m~^\./~ && -x $ARGV[0]);
+
+	# allow -- to split between files vs exec manually
+	#shift(@ARGV) if $ARGV[0] eq "--";
+	
+	# if there are no files, our command is it
+	@files = @commands if !@files;
+	push @commands, @ARGV;
+
+	if (!@files || !@commands)
 	{
-		#print STDERR "secs=$secs\nfiles=@files\ncommand=@command\n";
 		die "usage: $0 [secs] [files/dirs] [--] [command to run on change]\n";
 	}
 
-	return ($secs, $size, \@files, \@command);
+	return ($secs, $size, \@files, \@commands);
 }
 
 sub find
