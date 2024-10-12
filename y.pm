@@ -1258,6 +1258,19 @@ sub env_path
   return $ENV{"${cmd}_PATH"} || $ENV{lc($cmd) . "_PATH"} || $ENV{uc($cmd) . "_PATH"} || ($nodefault ? undef : $cmd);
 }
 
+# find path of file
+sub which
+{
+  my $file = shift;
+  return if !length $file;
+
+  my @paths = split /:/, $ENV{PATH};
+  for my $path (@paths)
+  {
+    return "$path/$file" if -e "$path/$file";
+  }
+}
+
 # is stdin piped in?
 # useful for scripts that can be used in a pipeline
 sub piped
