@@ -1,0 +1,103 @@
+#!/usr/bin/perl
+#
+# find all mDNS hosts on a network quickly
+# - scan for dns-sd discoverable & ipp services
+# - lookup mdns host for the discovered services
+# - get ip info for the mdns hosts
+#
+# -samy kamkar 2025/01/13
+
+use strict;
+
+my $DEBUG = shift;
+my $DNSSD = "dns-sd";
+my @SCAN = ("_services._dns-sd._udp", "_ipp._tcp");
+my %SCAN = map { $_ => 1 } @SCAN;
+my $STYPE = "Service Type";
+my $DOMAIN = "local.";
+
+my (%services, %lookup, %scanned, %hosts);
+scan($_, 2) for @SCAN;
+for my $service (keys %services)
+{
+  #print "services $_\n";
+  scan($service, 1) unless $scanned{$service}++;
+  lookup($_, $lookup{$_}) for keys %lookup;
+}
+
+#########################################################################
+#
+sub scan
+{
+  my ($s, $t) = @_;
+  my $cmd = "$DNSSD -B '$s' $DOMAIN";
+  my ($slen, $ilen, $nlen);
+  runt($cmd, sub {
+    #print "  > $_ ($slen)";
+    # find our columns
+    if (!$slen)
+    {
+      if (/$STYPE(\s+)/)
+      {
+        $slen = index($_, $STYPE);
+        $nlen = $slen + length($STYPE) + length($1);
+        $ilen = index($_, "Instance Name");
+        # XXX add ilen checking in case more columns are added in future after it
+      }
+    }
+    else
+    {
+      my $service = substr($_, $slen, $nlen - $slen);
+      my $instance = substr($_, $ilen);
+      $service =~ s/^\s+//;
+      $service =~ s/\s+$//;
+      $instance =~ s/^\s+//;
+      $instance =~ s/\s+$//;
+
+      # if this is actual service we want more info on
+      if ($service =~ /local\.$/)
+      {
+        $services{$instance} = $service
+      }
+      else
+      {
+        $lookup{$instance} = $service;
+      }
+    }
+  }, $t);
+}
+
+sub lookup
+{
+  my ($s, $i, $t) = @_;
+  $t ||= 1;
+  my $cmd = "$DNSSD -L '$s' $i $DOMAIN";
+  runt($cmd, sub {
+    print STDERR $_ if $DEBUG;
+    # /can be reached at (\S+):(\S+) \(interface (\d+)/
+    if (/can be reached at (\S+)/)
+    {
+      print "$1:$s:$i\n" unless $hosts{$1}++;
+    }
+  }, $t);
+}
+
+sub runt
+{
+  my ($cmd, $cb, $timeout) = @_;
+  $timeout ||= 3;
+  eval
+  {
+    my $pid = 0;
+    local $SIG{ALRM} = sub { kill(9, $pid) if $pid; die };
+    alarm($timeout);
+    print STDERR "running $cmd (alarm $timeout)\n" if $DEBUG;
+    $pid = open(my $d, "$cmd|") || die "failed to run $cmd: $!";
+    while (<$d>)
+    {
+      &{$cb}($_);
+    }
+    #close(D);
+    alarm(0);
+  };
+}
