@@ -11,7 +11,6 @@ no strict 'subs';
 #use lib "/Users/samy/Code/samyweb";
 #use samyweb;
 
-#use Date::Manip;
 #use Storable qw/freeze thaw/;
 #use HTML::Parser;
 #use HTML::Entities;
@@ -59,14 +58,22 @@ sub H2a {   pack "h*", $_[0] }
 sub a2B { unpack "b*", $_[0] }
 sub B2a {   pack "b*", $_[0] }
 sub h2H { a2H h2a($_[0]) }
+sub H2d { unpack "Q", reverse pack("H*", pad($_[0], 16)) }
 sub b2B { a2B b2a($_[0]) }
+sub d2H { strip00(unpack "H*", reverse pack("Q", $_[0])) }
 
 sub a2h { unpack "H*", $_[0] }
 sub h2a {   pack "H*", $_[0] }
 sub a2b { unpack "B*", $_[0] }
 sub b2a {   pack "B*", $_[0] }
 sub h2b { a2b h2a($_[0]) }
+sub h2d { unpack "Q", reverse pack("h*", pad($_[0], 16)) }
 sub b2h { a2h b2a($_[0]) }
+sub d2h { strip00(unpack "h*", reverse pack("Q", $_[0])) }
+
+sub strip00 { $_[0] =~ s/^(00)+//; $_[0] }
+sub strip0  { $_[0] =~ s/^0+//;    $_[0] }
+sub pad { "0" x ($_[1] - length($_[0])) }
 
 # dump hex
 sub hexdump
@@ -606,9 +613,18 @@ sub scale
 	return $val;
 }
 
+# average
+sub average
+{
+  my $sum = 0;
+  $sum += $_ for @_;
+  return $sum / @_;
+}
+
 # get epoch from date
 sub epoch
 {
+  u("Date::Manip");
 	return UnixDate($_[0], "%s");
 }
 
@@ -904,6 +920,9 @@ sub path
   return $_[0];
 }
 
+# cat but always return scalar
+sub f { return scalar cat(@_) }
+
 # cat(filename[, 1 to not fail[, 1 to not interpolate ~[, lines]]])
 sub cat
 {
@@ -967,6 +986,7 @@ sub csv
   foreach my $row (@lines)
   {
     my @data;
+    my $orow = $row;
     while (length $row)
     {
       if ($row =~ s/^"(.*?)"(?:$delim|$)|^(.*?)(?:$delim|$)//)
@@ -981,7 +1001,7 @@ sub csv
     }
     #my @data = split /$delim/, $row;
     push @return, { map { $hdr[$_] => $data[$_] } 0 .. $#hdr };
-    $return[-1]{_orig} = $row;
+    $return[-1]{_orig} = $orow;
   }
 
   return @return;
@@ -1006,6 +1026,49 @@ sub dbh
 	}
 	
 	return DBI->connect($str, $user, $pass, { AutoCommit => 1, @opts });
+}
+
+#use Digest::CRC qw(crc64 crc32 crc16 crcccitt crc crc8 crcopenpgparmor);
+sub crc32
+{
+  use Digest::CRC;
+	return wantarray ? map { d2h(Digest::CRC::crc32($_)) } @_ : d2h(Digest::CRC::crc32($_[0]));
+}
+
+sub crc64
+{
+  use Digest::CRC;
+	return wantarray ? map { d2h(Digest::CRC::crc64($_)) } @_ : d2h(Digest::CRC::crc64($_[0]));
+}
+
+sub crc16
+{
+  use Digest::CRC;
+	return wantarray ? map { d2h(Digest::CRC::crc16($_)) } @_ : d2h(Digest::CRC::crc16($_[0]));
+}
+
+sub crc8
+{
+  use Digest::CRC;
+	return wantarray ? map { d2h(Digest::CRC::crc8($_)) } @_ : d2h(Digest::CRC::crc8($_[0]));
+}
+
+sub crc
+{
+  use Digest::CRC;
+	return wantarray ? map { d2h(Digest::CRC::crc($_)) } @_ : d2h(Digest::CRC::crc($_[0]));
+}
+
+sub crcopenpgparmor
+{
+  use Digest::CRC;
+	return wantarray ? map { d2h(Digest::CRC::crcopenpgparmor($_)) } @_ : d2h(Digest::CRC::crcopenpgparmor($_[0]));
+}
+
+sub crcccitt
+{
+  use Digest::CRC;
+	return wantarray ? map { d2h(Digest::CRC::crcccitt($_)) } @_ : d2h(Digest::CRC::crcccitt($_[0]));
 }
 
 sub md5

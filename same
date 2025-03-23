@@ -5,6 +5,7 @@
 
 use strict;
 use File::Find;
+use y;;;
 
 die "finds files that are identical (quickly)\nby samy kamkar
 usage: $0 [-R (REMOVES ALL BUT FIRST ONE)] [-e match-regexp] [-v ignore-regexp] <dir> [...]\n" unless @ARGV;
@@ -24,12 +25,13 @@ if ($ARGV[0] eq "-v")
 	shift;
 	$ignore = shift;
 }
-my (%files, %md5);
+my (%files, %md5, %crc);
 
+# find all file sizes
 find(\&wanted, @ARGV);
 
-# more than one file with same size
-foreach my $size (grep { @{$files{$_}} > 1 } keys %files)
+# find sizes where there's more than one file with same size
+foreach my $size (grep { @{$files{$_}} > 1 } sort { $a <=> $b } keys %files)
 {
 	# md5 all files to find same files
 	foreach my $file (@{$files{$size}})
@@ -38,9 +40,29 @@ foreach my $size (grep { @{$files{$_}} > 1 } keys %files)
 		next if defined($ignore) && $file =~ /$ignore/;
 		next if defined($match) && $file !~ /$match/;
 
+		# if big file, crc32 first
+		if ($size > 1024*1024)
+		{
+			my $crc = crc32(f($file));
+			push @{$crc{$crc}}, $file;
+		}
+		else
+		{
+			my $md5 = md5($file);
+			push @{$md5{$md5}}, $file;
+		}
+	}
+}
+
+# more than one file with same crc32
+# TODO: show small files that are the same first
+foreach my $crc (grep { @{$crc{$_}} > 1 } keys %crc)
+{
+	foreach my $file (@{$crc{$crc}})
+	{
+		print "$crc: $file (need to md5)\n";
 		my $md5 = md5($file);
 		push @{$md5{$md5}}, $file;
-
 	}
 }
 
@@ -77,10 +99,13 @@ foreach my $md5 (grep { @{$md5{$_}} > 1 } keys %md5)
 
 sub wanted
 {
+	# ignore dirs
 	next if -d $_;
 
 	# we're in the dir in File::Find
 	my @tmp = stat($_);
+
+	# size
 	push @{$files{$tmp[7]}}, $File::Find::name;
 }
 
@@ -101,3 +126,7 @@ sub md5
 	}
 }
 
+#sub crc32
+#{
+#	runs("crc32", @_);
+#}
