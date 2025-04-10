@@ -20,9 +20,6 @@ This is a collection of simple but effective tools to use on the command line to
 **alert** - alert (play sound) when a command completes
 `alert dd if=file.iso of=disk`
 
-**alexa** - get Alexa.com ranking for a site
-`alexa cnn.com`
-
 **all** - loop a command over a list of files
 `all 'tar -zxvf FILE' *tgz`
 
