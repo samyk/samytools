@@ -1,0 +1,98 @@
+#!/Users/samy/c/re/pcbre/.venv/bin/python
+"""
+ic_ocr_pipeline.py (colour‑specific box crop)
+
+Extracts and crops the region enclosed by a rectangle whose border colour is
+exactly (R=19, G=20, B=24) – i.e. OpenCV BGR = (24, 20, 19).
+
+Usage
+-----
+python crop_color_box.py input.jpg output.jpg
+
+Dependencies
+------------
+pip install opencv-python numpy
+"""
+
+import sys
+import cv2
+import numpy as np
+from pathlib import Path
+
+TARGET_BGR = np.array([24, 20, 19], dtype=np.int16)  # B, G, R order
+TOLERANCE   = 10  # per‑channel absolute diff allowed
+
+# ---------------------------------------------------------------------------
+
+def build_colour_mask(img: np.ndarray, target: np.ndarray, tol: int) -> np.ndarray:
+    """Return binary mask where pixel colour ≈ target within ±tol (per channel)."""
+    diff = np.abs(img.astype(np.int16) - target)      # broadcast over H×W×3
+    mask = np.all(diff <= tol, axis=2)                # H×W boolean
+    return (mask.astype(np.uint8) * 255)              # binary 0/255 image
+
+
+def find_frame(mask: np.ndarray) -> tuple[int, int, int, int]:
+    """Locate the largest rectangular frame in the binary mask.
+    Returns (x, y, w, h). Raises ValueError if not found.
+    """
+    # close gaps to ensure continuous contour
+    closed = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((5, 5), np.uint8), 2)
+    contours, _ = cv2.findContours(closed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    if not contours:
+        raise ValueError("No matching‑colour shapes found")
+
+    cnt = max(contours, key=cv2.contourArea)
+    peri = cv2.arcLength(cnt, True)
+    approx = cv2.approxPolyDP(cnt, 0.02 * peri, True)
+    if len(approx) != 4:
+        raise ValueError("Largest shape is not quadrilateral")
+
+    x, y, w, h = cv2.boundingRect(approx)
+    if w < 20 or h < 20:
+        raise ValueError("Detected frame is extremely small; aborting")
+
+    # Ensure we have a border, not filled blob
+    area_box = w * h
+    # XXX fix this
+    #if cv2.contourArea(cnt) > 0.25 * area_box:
+    #    raise ValueError("Detected shape looks solid, not a thin frame")
+
+    return x, y, w, h
+
+
+def crop_inside(img: np.ndarray, bbox: tuple[int, int, int, int], margin: int = 1) -> np.ndarray:
+    x, y, w, h = bbox
+    x1, y1 = x + margin, y + margin
+    x2, y2 = x + w - margin, y + h - margin
+    return img[y1:y2, x1:x2]
+
+
+# ---------------------------------------------------------------------------
+
+def main(in_path: Path, out_path: Path):
+    img = cv2.imread(str(in_path), cv2.IMREAD_COLOR)
+    if img is None:
+        sys.exit(f"[ERROR] Cannot open {in_path}")
+
+    mask = build_colour_mask(img, TARGET_BGR, TOLERANCE)
+
+    try:
+        bbox = find_frame(mask)
+    except ValueError as e:
+        sys.exit(f"[ERROR] {e}")
+
+    cropped = crop_inside(img, bbox)
+    if cropped.size == 0:
+        sys.exit("[ERROR] Cropped region is empty (margin > region)")
+
+    cv2.imwrite(str(out_path), cropped)
+    print(f"Saved cropped region to {out_path}")
+
+
+if __name__ == "__main__":
+    if len(sys.argv) != 3:
+        print("Usage: python crop_color_box.py input_image output_image")
+        sys.exit(1)
+    main(Path(sys.argv[1]), Path(sys.argv[2]))
+

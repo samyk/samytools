@@ -1,0 +1,49 @@
+#!/usr/bin/perl
+#
+# look for file modified within X secs and remove bounding box
+# -samyk
+
+use strict;
+my $WAIT = 50;
+my $DIR = "/Users/samy/Screenshots";
+my $NOBOX = "/Users/samy/b/boundingbox";
+
+my $time = time();
+while ($time + $WAIT > time())
+{
+  my @files = findfiles(5, 5);
+  if (@files)
+  {
+    nobox($_) for @files;
+    exit;
+  }
+}
+
+sub findfiles
+{
+  my ($before, $after) = @_;
+  opendir(DIR, $DIR) || die "can't read $DIR: !";
+  my @files = grep {
+    my ($mtime) = (stat("$DIR/$_"))[9];
+    !/^\./ && ($mtime <= time() + $after) && ($mtime >= time() - $before)
+  } readdir(DIR);
+  closedir(DIR);
+
+  return @files;
+}
+
+sub nobox
+{
+  my $f = shift;
+  my $new = $f;
+  $new =~ s/(\.\w+)$/.nobox$1/;
+  print "$NOBOX '$DIR/$f' '$DIR/$new'\n";
+  if (system($NOBOX, "$DIR/$f", "$DIR/$new") == 0)
+  {
+    rename("$DIR/$f", "/tmp/$f") or warn "Failed to move $f to /tmp: $!";
+  }
+  else
+  {
+    warn "Failed to run $NOBOX on $f: $!";
+  }
+}
