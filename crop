@@ -1,0 +1,69 @@
+#!/usr/bin/perl
+#
+# crop/tell size for images, gifs, or videos
+# -samy kamkar
+
+use strict;
+
+die "usage: $0 <img/vid ...> [width% [height%] out | [width height] x y out]\n(no data will give image size)\n" if !@ARGV;
+
+my @in;
+push @in, shift(@ARGV) while -e $ARGV[0];
+# half size: ffmpeg -i input.avi -vf scale="iw/2:ih/2" output.avi
+
+my ($w, $h, $x, $y, $out);
+if (@ARGV == 4 || @ARGV == 5)
+{
+  ($w, $h, $x, $y, $out) = @ARGV;
+}
+else
+{
+  ($x, $y, $out) = @ARGV;
+# x/y are same if only one specified
+  if ($y !~ /^\d*\.?\d+%?$/)
+  {
+    $out = $y;
+    $y = $x;
+  }
+  for my $in (@in)
+  {
+    map { s/%//; $_ /= 100; } $x, $y;
+    my $tout = $out || $in;
+    if (!$out) { $tout =~ s/(\.?\w+)?$/.crop$1/; }
+    run("ffmpeg", "-i", $in, "-filter:v", "scale=iw*$x:ih*$y", $tout);
+  }
+  exit;
+}
+
+#if (!$w && !$h)
+#{
+  #print "current w=$w h=$h\n";
+for my $in (@in)
+{
+  my @lines = grep { /Stream/ } `ffmpeg -i '$in' 2>&1`;
+  foreach my $line (@lines)
+  {
+    print "> $line";
+    if ($line =~ / (\d+)x(\d+),? /)
+    {
+      print "w/h: $1 $2\n";
+      ($w, $h) = ($1, $2) if !$w;
+    }
+  }
+  #print "now w=$w h=$h\n";
+  #}
+
+  my $tout = $out || $in;
+  if (!$out) { $tout =~ s/(\.?\w+)?$/.crop$1/; }
+
+  if ($w)
+  {
+    run("ffmpeg", "-i", $in, "-filter:v", "crop=$w:$h:$x:$y", $tout);
+  }
+}
+
+sub run
+{
+  print "@_\n";
+  system(@_);
+}
