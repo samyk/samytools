@@ -13,7 +13,7 @@ my $FFMPEG   = "ffmpeg"; # path to ffmpeg (or in $PATH)
 my $EXIFTOOL = "exiftool"; # path to exiftool (not required)
 
 my ($vid, $outdir, $fr) = @ARGV;
-$outdir ||= "frames";
+$outdir ||= "$vid-frames";
 $fr ||= (map /(\d+)/, runv($EXIFTOOL, '-VideoFrameRate', $vid))[0];
 $fr ||= 60;
 

@@ -27,6 +27,7 @@ if (!-e $file)
 }
 
 my $img = "$DIR/.ocr.new.$rand.png";
+my $imgglob = "$DIR/.ocr.new.$rand*.png";
 runv($CONVERT, $file, @convopts, $img);
 #system("open", $img);
 
@@ -34,13 +35,21 @@ runv($CONVERT, $file, @convopts, $img);
 # otherwise get no such file (in a specific version)
 
 chdir($DIR);
+print "$DIR - $imgglob\n";
 # run tesseract and output to file, it adds .txt to end
-my $out = "$DIR/.ocr.out.$rand";
-runv($TESSERACT, $img, $out);
-$out .= ".txt";
+for my $rimg (glob($imgglob))
+{
+  print "hm $rimg\n";
+  my $out = $rimg;
+  $out =~ s/\.png$//;
+  #my $out = "$DIR/.ocr.out.$rand";
+  runv($TESSERACT, $rimg, $out);
+  $out .= ".txt";
 
-# read our file
-print cat($out);
+  # read our file
+  print cat($out);
+}
+
 #open(OUT, "<$out") || die $!;
 #print while <OUT>;
 #close(OUT);
